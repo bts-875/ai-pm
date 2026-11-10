@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>行业大模型训练验证平台 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#2f6fed',
+        dark: '#050505',
+      },
+      fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        mono: ['SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+      },
+      animation: {
+        'fade-up': 'fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'fade-in': 'fadeIn 0.8s ease-out forwards',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow-move': 'glowMove 10s linear infinite',
+      },
+      keyframes: {
+        fadeUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        glowMove: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  body {
+    background-color: #050505;
+    color: #ffffff;
+    /* 增加一层极简的网格背景，凸显科技感 */
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+    background-position: center center;
+    overflow: hidden;
+  }
+  
+  /* 光晕效果 */
+  .glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  
+  /* 按钮流光 */
+  .btn-primary {
+    background: #ffffff;
+    color: #000000;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+    transition: all 0.5s ease;
+  }
+  .btn-primary:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(255,255,255,0.3);
+  }
+  .btn-primary:hover::before {
+    left: 100%;
+  }
+</style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center relative">
+
+  <!-- 背景环境光 (柔和的蓝紫渐变光晕) -->
+  <div class="glow-orb bg-blue-600/30 w-[400px] h-[400px] top-1/4 left-1/4 animate-glow-move"></div>
+  <div class="glow-orb bg-purple-600/20 w-[500px] h-[500px] bottom-1/4 right-1/4 animate-glow-move" style="animation-delay: -5s;"></div>
+  <div class="glow-orb bg-cyan-600/20 w-[300px] h-[300px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse-slow"></div>
+
+  <!-- 中心内容区 -->
+  <main class="relative z-10 flex flex-col items-center text-center px-6 max-w-4xl mx-auto">
+    
+    <!-- 顶部小标识 -->
+    <div class="animate-fade-up opacity-0 flex items-center gap-2 mb-8" style="animation-delay: 0.1s;">
+      <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+      <span class="text-xs font-mono tracking-widest text-gray-400 uppercase">ModelForge Enterprise Edition</span>
+    </div>
+
+    <!-- 主标题 -->
+    <h1 class="animate-fade-up opacity-0 text-5xl md:text-7xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 mb-6 leading-tight" style="animation-delay: 0.2s;">
+      行业大模型<br class="hidden md:block" />训练验证平台
+    </h1>
+
+    <!-- 欢迎语 / 副标题 -->
+    <p class="animate-fade-up opacity-0 text-lg md:text-xl text-gray-400 font-light max-w-2xl mb-12 leading-relaxed" style="animation-delay: 0.3s;">
+      从数据清洗、模型微调到评测反哺，一站式构建您的私有化领域大模型。确保数据不出域，让大模型真正懂您的业务。
+    </p>
+
+    <!-- 主按钮 -->
+    <div class="animate-fade-up opacity-0" style="animation-delay: 0.4s;">
+      <a href="项目概览.html" class="btn-primary inline-flex items-center justify-center gap-2 px-10 py-4 rounded-full text-base font-semibold">
+        进入系统
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+      </a>
+    </div>
+
+    <!-- 底部特性标签 -->
+    <div class="animate-fade-in opacity-0 flex flex-wrap justify-center gap-6 mt-20 text-sm text-gray-500 font-mono" style="animation-delay: 0.8s;">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+        私有化部署
+      </div>
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+        多租户隔离
+      </div>
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        评测反哺闭环
+      </div>
+    </div>
+
+  </main>
+
+</body>
+</html>
