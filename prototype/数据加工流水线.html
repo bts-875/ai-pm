@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据加工流水线 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+    ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+    line: '#e6eaf2', canvas: '#f5f7fb',
+    ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+  } } }
+}
+</script>
+<style>
+  /* 基础表单样式 */
+  input[type="text"], input[type="number"], select, textarea { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 流水线节点连接线 */
+  .step-connector { position: absolute; top: 40px; left: 50%; bottom: -16px; width: 2px; background: #e6eaf2; transform: translateX(-50%); z-index: 0; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)]">
+
+  <!-- 面包屑与页头 -->
+  <div class="text-[13px] text-ink-3 mb-2">
+    <a href="数据资产.html" class="text-primary hover:underline mr-1">数据资产</a> / <b>数据加工流水线</b>
+  </div>
+  
+  <div class="flex items-start justify-between mb-5">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold">业务系统-历史工单 (原始)</h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[#f2f4f7] text-ink-3">原始数据 4,540 条</span>
+      </div>
+      <div class="text-ink-3 text-[13px] mt-1">通过编排算子，将原始杂乱数据清洗为标准训练集</div>
+    </div>
+    <div class="flex gap-2.5">
+      <button class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px] font-medium hover:border-primary hover:text-primary transition">保存草稿</button>
+      <button onclick="runTask()" id="btnRun" class="bg-primary text-white rounded-lg px-5 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">保存并执行全量加工</button>
+    </div>
+  </div>
+
+  <!-- 左右双栏：左侧算子编排，右侧配置面板 -->
+  <div class="grid grid-cols-[1fr_360px] gap-5 h-[calc(100vh-200px)] min-h-[600px]">
+    
+    <!-- 左侧：可视化算子流水线 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm flex flex-col overflow-hidden">
+      <div class="px-5 py-3 border-b border-line bg-[#fafbfd] flex justify-between items-center shrink-0">
+        <h3 class="text-[14px] font-semibold">处理节点</h3>
+        <button class="text-[12px] text-primary hover:underline">+ 添加算子</button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-6 bg-[#fafbfd]/50 flex flex-col items-center">
+        
+        <!-- 节点 1：输入源 -->
+        <div class="relative w-full max-w-lg bg-white border border-line rounded-lg p-4 shadow-sm mb-6 z-10">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-full bg-ink-3 text-white flex items-center justify-center text-xs font-bold">1</span>
+            <h4 class="font-semibold text-ink">数据输入</h4>
+          </div>
+          <div class="text-xs text-ink-3">来源：业务系统 API 自动引接 (2023-11-01 至 2023-11-05)</div>
+          <div class="mt-2 text-[13px] text-ink-2 font-medium">共 4,540 条原始对话记录</div>
+        </div>
+        
+        <div class="w-0.5 h-6 bg-line -mt-6 mb-2 z-0"></div>
+
+        <!-- 节点 2：算子 - 格式校验 -->
+        <div class="relative w-full max-w-lg bg-white border border-primary ring-2 ring-primary/20 rounded-lg p-4 shadow-sm mb-6 z-10 cursor-pointer" onclick="selectOperator(2)">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">2</span>
+              <h4 class="font-semibold text-primary">算子：JSON 格式校验与修复</h4>
+            </div>
+            <span class="text-xs text-ink-3 cursor-pointer hover:text-danger" onclick="event.stopPropagation(); removeOperator(this)">移除</span>
+          </div>
+          <div class="text-xs text-ink-2">检查数据是否包含非法字符，自动修复缺失的引号或括号。</div>
+          <div class="mt-2 text-xs text-ok bg-[#e7f8f0] inline-block px-2 py-0.5 rounded">预计过滤异常：12 条</div>
+        </div>
+
+        <div class="w-0.5 h-6 bg-line -mt-6 mb-2 z-0"></div>
+
+        <!-- 节点 3：算子 - 长度截断 -->
+        <div class="relative w-full max-w-lg bg-white border border-line rounded-lg p-4 shadow-sm mb-6 z-10 cursor-pointer" onclick="selectOperator(3)">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">3</span>
+              <h4 class="font-semibold text-ink">算子：长度截断</h4>
+            </div>
+            <span class="text-xs text-ink-3 cursor-pointer hover:text-danger" onclick="event.stopPropagation(); removeOperator(this)">移除</span>
+          </div>
+          <div class="text-xs text-ink-2">剔除过短无效数据，并对超长数据截断。</div>
+          <div class="mt-2 text-xs text-ink-3 bg-[#fafbfd] border border-line inline-block px-2 py-0.5 rounded">保留 10 ~ 2048 字符</div>
+        </div>
+
+        <div class="w-0.5 h-6 bg-line -mt-6 mb-2 z-0"></div>
+
+        <!-- 节点 4：输出 -->
+        <div class="relative w-full max-w-lg bg-white border border-line rounded-lg p-4 shadow-sm z-10">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-full bg-ok text-white flex items-center justify-center text-xs font-bold">4</span>
+            <h4 class="font-semibold text-ink">输出数据集</h4>
+          </div>
+          <div class="text-xs text-ink-3">发布为：工单问答 SFT 集 v4</div>
+          <div class="mt-2 text-[13px] text-ink-2 font-medium">预计有效样本 4,100 条</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 右侧：算子参数配置 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm flex flex-col overflow-hidden">
+      <div class="px-5 py-3 border-b border-line bg-[#fafbfd] flex items-center gap-2 shrink-0">
+        <h3 class="text-[14px] font-semibold text-ink">节点 2：JSON 格式校验与修复</h3>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-5 space-y-4">
+        
+        <div>
+          <label class="form-label">处理动作</label>
+          <select><option>自动尝试修复 (补全括号)</option><option>直接丢弃异常行</option></select>
+        </div>
+
+        <div>
+          <label class="form-label">内容校验深度</label>
+          <select><option>仅校验外层结构 (快速)</option><option>深度解析内层字段 (严格)</option></select>
+          <div class="text-xs text-ink-3 mt-1">深度解析会检查对话内容的 role/content 字段是否完整。</div>
+        </div>
+
+        <div class="pt-4 border-t border-line">
+          <div class="flex justify-between items-center mb-2">
+            <label class="form-label !mb-0">抽取 100 条试运行</label>
+            <button class="text-xs text-primary hover:underline">运行测试</button>
+          </div>
+          <div class="bg-[#fafbfd] border border-line rounded-lg p-3">
+            <div class="flex justify-between text-[13px] mb-2 pb-2 border-b border-line">
+              <span class="text-ink-2">输入</span><span class="font-medium">100 条</span>
+            </div>
+            <div class="flex justify-between text-[13px] mb-2 pb-2 border-b border-line">
+              <span class="text-ink-2">成功修复</span><span class="font-medium text-primary">8 条</span>
+            </div>
+            <div class="flex justify-between text-[13px]">
+              <span class="text-ink-2">异常丢弃</span><span class="font-medium text-danger">2 条</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 异常样本示例 -->
+        <div>
+          <label class="form-label">异常样本示例</label>
+          <div class="bg-[#feeceb] border border-danger/20 text-danger p-2.5 rounded text-[12px] font-mono leading-relaxed break-all">
+            {"id": "t-0042", "content": "设备无法开机" // 缺少闭合括号和 role 字段
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 遮罩与成功提示弹窗 -->
+<div id="successModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[400px] p-6 text-center">
+    <div class="w-12 h-12 rounded-full bg-[#e7f8f0] text-ok flex items-center justify-center mx-auto mb-4">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+    </div>
+    <h3 class="text-lg font-bold text-ink mb-2">全量加工任务已下发</h3>
+    <p class="text-[13px] text-ink-3 mb-6">系统正在后台处理 4,540 条数据，完成后将自动发布为数据集 v4。</p>
+    <button onclick="window.location.href='数据资产.html'" class="w-full bg-primary text-white rounded-lg py-2 text-[13px] font-medium hover:bg-primary-dark transition">返回数据资产列表</button>
+  </div>
+</div>
+
+<script>
+  // 选中算子卡片的交互 (仅UI展示)
+  function selectOperator(id) {
+    // 移除其他卡片的选中态
+    document.querySelectorAll('.max-w-lg').forEach(el => {
+      el.classList.remove('border-primary', 'ring-2', 'ring-primary/20');
+    });
+    // 给当前点击的卡片加选中态
+    event.currentTarget.classList.add('border-primary', 'ring-2', 'ring-primary/20');
+  }
+
+  // 移除算子
+  function removeOperator(el) {
+    if(confirm('确定移除该算子节点吗？')) {
+      const card = el.closest('.max-w-lg');
+      // 简单动画移除
+      card.style.opacity = '0';
+      card.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        card.remove();
+      }, 200);
+    }
+  }
+
+  // 执行任务
+  function runTask() {
+    const btn = document.getElementById('btnRun');
+    btn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 正在下发...';
+    btn.disabled = true;
+    
+    // 模拟网络请求
+    setTimeout(() => {
+      document.getElementById('successModal').classList.remove('hidden');
+    }, 1000);
+  }
+</script>
+</body>
+</html>

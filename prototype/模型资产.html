@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型资产 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+    ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+    line: '#e6eaf2', canvas: '#f5f7fb',
+    ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+  } } }
+}
+</script>
+<style>
+  /* 基础表单样式 */
+  input[type="text"], select { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 筛选 Chip */
+  .filter-chip.active { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索模型名称 / ID…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)]">
+
+  <!-- 页头 -->
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold">模型资产</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">统一管理基座模型、微调版本与量化产物</div>
+    </div>
+    <div class="flex gap-2.5">
+      <button class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px] font-medium hover:border-primary hover:text-primary transition">导入外部模型</button>
+      <a href="训练任务.html" class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">发起新训练</a>
+    </div>
+  </div>
+
+  <!-- 顶部概览指标卡 -->
+  <div class="grid grid-cols-4 gap-4 mb-5">
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">模型资产总数</div>
+      <div class="text-[24px] font-bold mt-1">15</div>
+      <div class="text-xs text-ink-3 mt-1">基座 4 · 微调 8 · 量化 3</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4 relative overflow-hidden ring-1 ring-primary/20">
+      <div class="absolute top-0 right-0 bg-primary text-white text-[10px] px-2 py-0.5 rounded-bl-lg">核心资产</div>
+      <div class="text-ink-3 text-[13px]">最优微调模型</div>
+      <div class="text-[18px] font-bold text-ink mt-1.5 truncate">微调模型 v3</div>
+      <div class="text-xs text-ok mt-1 font-medium">业务集准确率 84.0%</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">量化模型产出</div>
+      <div class="text-[24px] font-bold mt-1">3</div>
+      <div class="text-xs text-ink-3 mt-1">涵盖 INT8 / INT4 (GPTQ)</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">存储占用</div>
+      <div class="text-[24px] font-bold mt-1">42.5 <span class="text-sm font-normal text-ink-3">GB</span></div>
+      <div class="text-xs text-ink-3 mt-1">私有化环境本地存储</div>
+    </div>
+  </div>
+
+  <!-- 筛选工具栏 -->
+  <div class="flex flex-wrap items-center gap-2.5 mb-4">
+    <div class="flex-1 min-w-[200px]">
+      <input type="text" placeholder="搜索模型名称 / 来源训练任务…" class="!py-2">
+    </div>
+    <div class="flex gap-2">
+      <button class="filter-chip active whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">全部模型</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">基座模型</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">微调模型</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">量化产物</button>
+    </div>
+  </div>
+
+  <!-- 模型列表 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+    <table class="w-full text-left text-[13px]">
+      <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+        <tr>
+          <th class="font-medium px-4 py-3">模型名称</th>
+          <th class="font-medium px-4 py-3">类型</th>
+          <th class="font-medium px-4 py-3">基座/来源</th>
+          <th class="font-medium px-4 py-3">体积</th>
+          <th class="font-medium px-4 py-3">业务集得分</th>
+          <th class="font-medium px-4 py-3">状态</th>
+          <th class="font-medium px-4 py-3">创建时间</th>
+          <th class="font-medium px-4 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="text-ink-2 divide-y divide-line">
+        
+        <!-- 微调模型 (当前最优) -->
+        <tr class="hover:bg-[#fafbff] transition bg-[#fafbff]/30">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">微调模型 v3</td>
+          <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs">微调 (SFT+DPO)</span></td>
+          <td class="px-4 py-3">Qwen2.5-7B</td>
+          <td class="px-4 py-3">14.0 GB</td>
+          <td class="px-4 py-3 font-semibold text-ok">84.0%</td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">可用</span></td>
+          <td class="px-4 py-3 text-ink-3">今天 10:00</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">详情</a>
+            <a href="发起量化.html" class="text-primary hover:underline font-semibold">去量化</a>
+          </td>
+        </tr>
+
+        <!-- 微调模型 v2 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">微调模型 v2</td>
+          <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs">微调 (SFT)</span></td>
+          <td class="px-4 py-3">Qwen2.5-7B</td>
+          <td class="px-4 py-3">14.0 GB</td>
+          <td class="px-4 py-3">80.5%</td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">可用</span></td>
+          <td class="px-4 py-3 text-ink-3">昨天</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">详情</a>
+            <a href="发起量化.html" class="text-primary hover:underline font-semibold">去量化</a>
+          </td>
+        </tr>
+
+        <!-- 量化模型 INT8 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">微调 v2 · INT8</td>
+          <td class="px-4 py-3"><span class="bg-[#f0edfe] text-violet px-2 py-0.5 rounded text-xs">量化 (INT8)</span></td>
+          <td class="px-4 py-3">源自: 微调模型 v2</td>
+          <td class="px-4 py-3 text-ok">7.2 GB</td>
+          <td class="px-4 py-3">80.0%</td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">可用</span></td>
+          <td class="px-4 py-3 text-ink-3">06-15</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="量化结果对比.html" class="text-primary hover:underline">对比报告</a>
+            <a href="#" class="text-ink-2 hover:underline">导出部署</a>
+          </td>
+        </tr>
+
+        <!-- 量化模型 INT4 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">微调 v3 · INT4</td>
+          <td class="px-4 py-3"><span class="bg-[#f0edfe] text-violet px-2 py-0.5 rounded text-xs">量化 (GPTQ)</span></td>
+          <td class="px-4 py-3">源自: 微调模型 v3</td>
+          <td class="px-4 py-3 text-ok">4.1 GB</td>
+          <td class="px-4 py-3 text-warn">82.1%</td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">可用</span></td>
+          <td class="px-4 py-3 text-ink-3">今天 11:30</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="量化结果对比.html" class="text-primary hover:underline">对比报告</a>
+            <a href="#" class="text-ink-2 hover:underline">导出部署</a>
+          </td>
+        </tr>
+
+        <!-- 基座模型 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">Qwen2.5-7B-Instruct</td>
+          <td class="px-4 py-3"><span class="bg-[#f2f4f7] text-ink-3 px-2 py-0.5 rounded text-xs">基座模型</span></td>
+          <td class="px-4 py-3">官方仓库导入</td>
+          <td class="px-4 py-3">14.0 GB</td>
+          <td class="px-4 py-3 text-ink-3">—</td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">可用</span></td>
+          <td class="px-4 py-3 text-ink-3">10-01</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">详情</a>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 分页 -->
+  <div class="flex items-center justify-between mt-4 text-[13px] text-ink-2">
+    <div class="text-ink-3">共 15 个模型资产</div>
+    <div class="flex items-center gap-1">
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white text-ink-3 cursor-not-allowed">上一页</button>
+      <button class="px-2.5 py-1.5 border border-primary rounded-md bg-primary text-white">1</button>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">2</button>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">下一页</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // 筛选 Chip
+  const chips = document.querySelectorAll('.filter-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', function(){
+      chips.forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

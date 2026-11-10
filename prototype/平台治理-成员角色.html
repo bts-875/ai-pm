@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成员与权限 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' }, ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' }, line: '#e6eaf2', canvas: '#f5f7fb', ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8' } } } }
+</script>
+<style>
+  input, select { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  ::-webkit-scrollbar{width:8px;height:8px} ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+  
+  /* 权限矩阵表格 */
+  .perm-table { border-collapse: separate; border-spacing: 0; width: 100%; text-align: center; font-size: 13px; }
+  .perm-table th { background: #fafbfd; color: #5b6678; font-weight: 500; padding: 10px; border-bottom: 1px solid #e6eaf2; border-top: 1px solid #e6eaf2; }
+  .perm-table td { padding: 10px; border-bottom: 1px solid #e6eaf2; color: #5b6678; }
+  .perm-table th:first-child, .perm-table td:first-child { text-align: left; border-left: 1px solid #e6eaf2; padding-left: 16px; font-weight: 500; color: #1f2733; }
+  .perm-table th:last-child, .perm-table td:last-child { border-right: 1px solid #e6eaf2; padding-right: 16px; }
+  .chk { color: #12b76a; font-weight: bold; font-size: 16px; }
+  .dash { color: #d6dbe6; }
+
+  /* 弹窗动画 */
+  .modal-enter { animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* 自定义 Checkbox */
+  .custom-chk { appearance: none; width: 18px; height: 18px; border: 1px solid #d0d5dd; border-radius: 4px; cursor: pointer; position: relative; vertical-align: middle; transition: all 0.2s; }
+  .custom-chk:checked { background-color: #2f6fed; border-color: #2f6fed; }
+  .custom-chk:checked::after { content: '✓'; position: absolute; color: white; font-size: 12px; top: 0; left: 3px; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary">行业大模型训练验证平台 <span class="text-ink-3 text-xs ml-1">ModelForge</span></div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]"><span class="w-2 h-2 rounded-full bg-ok"></span>租户：某行业客户A · 项目：智能问答模型</div>
+  <div class="flex-1"></div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">平台治理</div>
+  <a href="平台治理-租户管理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 租户与项目</a>
+  <a href="平台治理-成员角色.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 成员与权限</a>
+  <a href="平台治理-算力资源.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 算力资源池</a>
+  <a href="平台治理-审计日志.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 审计日志</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)] space-y-6">
+
+  <!-- 页头 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">成员与权限</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">基于角色的访问控制 (RBAC) · 确保最小权限原则</div>
+    </div>
+  </div>
+
+  <!-- 第一部分：系统角色与权限 -->
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <h3 class="text-[15px] font-semibold">系统角色字典</h3>
+        <span class="text-xs text-ink-3 bg-[#fafbfd] border border-line px-2 py-0.5 rounded">系统内置 5 个角色</span>
+      </div>
+      <!-- 新增自定义角色按钮 -->
+      <button onclick="openModal('createRoleModal')" class="bg-white border border-primary text-primary rounded-lg px-4 py-1.5 text-[13px] font-medium hover:bg-primary-light transition">+ 新建自定义角色</button>
+    </div>
+    
+    <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+      <table class="perm-table">
+        <thead>
+          <tr>
+            <th>角色名称</th>
+            <th>数据资产</th>
+            <th>模型训练</th>
+            <th>模型资产</th>
+            <th>评测中心</th>
+            <th>知识增强</th>
+            <th>平台治理</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-danger"></span>平台管理员</td>
+            <td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td>
+            <td class="text-ink-3 text-xs">系统内置</td>
+          </tr>
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-warn"></span>项目管理员</td>
+            <td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="chk">✓</td><td class="dash">—</td>
+            <td class="text-ink-3 text-xs">系统内置</td>
+          </tr>
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#f79009]"></span>数据工程师</td>
+            <td class="chk">✓</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="chk">✓</td><td class="dash">—</td>
+            <td class="text-ink-3 text-xs">系统内置</td>
+          </tr>
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-primary"></span>算法工程师</td>
+            <td class="dash">—</td><td class="chk">✓</td><td class="chk">✓</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td>
+            <td class="text-ink-3 text-xs">系统内置</td>
+          </tr>
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-ok"></span>业务评测员</td>
+            <td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="chk">✓</td><td class="dash">—</td><td class="dash">—</td>
+            <td class="text-ink-3 text-xs">系统内置</td>
+          </tr>
+          <!-- 自定义角色示例 -->
+          <tr>
+            <td class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-violet"></span>外部标注员 <span class="text-[10px] text-violet bg-[#f0edfe] px-1.5 py-0.5 rounded">自定义</span></td>
+            <td class="chk">✓</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td>
+            <td class="space-x-2">
+              <a href="#" onclick="openModal('createRoleModal')" class="text-primary hover:underline text-xs">编辑</a>
+              <a href="#" onclick="return confirm('删除角色？')" class="text-danger hover:underline text-xs">删除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 第二部分：成员列表 -->
+  <div class="pt-4 border-t border-line">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-[15px] font-semibold">项目成员名单</h3>
+      <div class="flex gap-2">
+        <div class="relative w-48">
+          <input type="text" placeholder="搜索姓名 / 账号…" class="!py-1.5 !text-[12px] !pl-7">
+          <svg class="w-3.5 h-3.5 text-ink-3 absolute left-2 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <button onclick="openModal('inviteModal')" class="bg-primary text-white rounded-lg px-4 py-1.5 text-[13px] font-medium hover:bg-primary-dark transition">+ 邀请新成员</button>
+      </div>
+    </div>
+
+    <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+      <table class="w-full text-left text-[13px]">
+        <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+          <tr>
+            <th class="font-medium px-4 py-3">成员</th>
+            <th class="font-medium px-4 py-3">账号</th>
+            <th class="font-medium px-4 py-3">当前角色</th>
+            <th class="font-medium px-4 py-3">加入时间</th>
+            <th class="font-medium px-4 py-3 text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody class="text-ink-2 divide-y divide-line">
+          <tr class="hover:bg-[#fafbff]">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2"><div class="w-7 h-7 rounded-full bg-[#eef3fe] text-primary flex items-center justify-center font-bold text-xs">张</div><span class="font-medium text-ink">张工</span></div>
+            </td>
+            <td class="px-4 py-3">zhang@domain.com</td>
+            <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs">算法工程师</span></td>
+            <td class="px-4 py-3 text-ink-3">2023-10-01</td>
+            <td class="px-4 py-3 text-right space-x-3">
+              <a href="#" onclick="openModal('changeRoleModal')" class="text-primary hover:underline">修改角色</a>
+              <a href="#" onclick="return confirm('确定移除该成员？')" class="text-danger hover:underline">移除</a>
+            </td>
+          </tr>
+          <tr class="hover:bg-[#fafbff]">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2"><div class="w-7 h-7 rounded-full bg-[#e7f8f0] text-ok flex items-center justify-center font-bold text-xs">王</div><span class="font-medium text-ink">王业务</span></div>
+            </td>
+            <td class="px-4 py-3">wang@domain.com</td>
+            <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs">业务评测员</span></td>
+            <td class="px-4 py-3 text-ink-3">2023-10-05</td>
+            <td class="px-4 py-3 text-right space-x-3">
+              <a href="#" onclick="openModal('changeRoleModal')" class="text-primary hover:underline">修改角色</a>
+              <a href="#" onclick="return confirm('确定移除该成员？')" class="text-danger hover:underline">移除</a>
+            </td>
+          </tr>
+          <tr class="hover:bg-[#fafbff]">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2"><div class="w-7 h-7 rounded-full bg-[#f0edfe] text-violet flex items-center justify-center font-bold text-xs">赵</div><span class="font-medium text-ink">赵外包</span></div>
+            </td>
+            <td class="px-4 py-3">zhao@vendor.com</td>
+            <td class="px-4 py-3"><span class="bg-[#f0edfe] text-violet px-2 py-0.5 rounded text-xs">外部标注员</span></td>
+            <td class="px-4 py-3 text-ink-3">2023-10-20</td>
+            <td class="px-4 py-3 text-right space-x-3">
+              <a href="#" onclick="openModal('changeRoleModal')" class="text-primary hover:underline">修改角色</a>
+              <a href="#" onclick="return confirm('确定移除该成员？')" class="text-danger hover:underline">移除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ================= 弹窗 1：邀请新成员 ================= -->
+<div id="inviteModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[480px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">邀请新成员</h3>
+      <button onclick="closeModal('inviteModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="form-label">成员邮箱 <span class="text-danger">*</span></label>
+        <input type="text" placeholder="输入企业邮箱，多个请用逗号隔开">
+        <div class="text-xs text-ink-3 mt-1">仅支持在“数据不出域”环境内的企业邮箱。</div>
+      </div>
+      <div>
+        <label class="form-label">分配系统角色 <span class="text-danger">*</span></label>
+        <select>
+          <option>算法工程师 (模型训练/资产)</option>
+          <option>业务评测员 (评测中心)</option>
+          <option>数据工程师 (数据资产/知识库)</option>
+          <option>外部标注员 (仅数据读取)</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">分配业务项目</label>
+        <select>
+          <option>智能问答模型</option>
+          <option>客服摘要模型</option>
+        </select>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('inviteModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('inviteModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">发送邀请</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 弹窗 2：新建/编辑角色（权限配置） ================= -->
+<div id="createRoleModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[560px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink" id="roleModalTitle">新建自定义角色</h3>
+      <button onclick="closeModal('createRoleModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    
+    <div class="p-6 space-y-5">
+      <div>
+        <label class="form-label">角色名称 <span class="text-danger">*</span></label>
+        <input type="text" id="roleNameInput" placeholder="例如：外部标注员 / 算法实习生">
+      </div>
+      
+      <div>
+        <label class="form-label mb-2">功能模块权限分配 <span class="text-danger">*</span></label>
+        <div class="border border-line rounded-lg overflow-hidden bg-white">
+          <div class="bg-[#fafbfd] px-4 py-2 border-b border-line text-xs font-medium text-ink-2 flex justify-between">
+            <span>模块名称</span><span>允许访问</span>
+          </div>
+          <div class="divide-y divide-line">
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] cursor-pointer">
+              <div><div class="text-[13px] font-medium text-ink">数据资产</div><div class="text-[11px] text-ink-3 mt-0.5">查看数据集、执行加工、下载数据</div></div>
+              <input type="checkbox" class="custom-chk" checked>
+            </label>
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] cursor-pointer">
+              <div><div class="text-[13px] font-medium text-ink">模型训练</div><div class="text-[11px] text-ink-3 mt-0.5">创建训练任务、查看运行监控</div></div>
+              <input type="checkbox" class="custom-chk">
+            </label>
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] cursor-pointer">
+              <div><div class="text-[13px] font-medium text-ink">模型资产</div><div class="text-[11px] text-ink-3 mt-0.5">查看模型版本、发起量化</div></div>
+              <input type="checkbox" class="custom-chk">
+            </label>
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] cursor-pointer">
+              <div><div class="text-[13px] font-medium text-ink">评测中心</div><div class="text-[11px] text-ink-3 mt-0.5">发起客观/主观评测、RAG 对比</div></div>
+              <input type="checkbox" class="custom-chk">
+            </label>
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] cursor-pointer">
+              <div><div class="text-[13px] font-medium text-ink">知识增强</div><div class="text-[11px] text-ink-3 mt-0.5">上传知识库、调整切片参数</div></div>
+              <input type="checkbox" class="custom-chk">
+            </label>
+            <label class="flex items-center justify-between px-4 py-3 hover:bg-[#fafbfd] opacity-50 cursor-not-allowed">
+              <div><div class="text-[13px] font-medium text-ink">平台治理</div><div class="text-[11px] text-ink-3 mt-0.5">仅平台管理员可访问</div></div>
+              <input type="checkbox" class="custom-chk" disabled>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('createRoleModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('createRoleModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">保存角色</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 弹窗 3：修改成员角色 ================= -->
+<div id="changeRoleModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[400px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">修改成员角色</h3>
+      <button onclick="closeModal('changeRoleModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="flex items-center gap-3 p-3 bg-[#fafbfd] border border-line rounded-lg">
+        <div class="w-8 h-8 rounded-full bg-[#eef3fe] text-primary flex items-center justify-center font-bold">张</div>
+        <div>
+          <div class="text-[13px] font-medium text-ink">张工</div>
+          <div class="text-xs text-ink-3">zhang@domain.com</div>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">调整为以下角色</label>
+        <select>
+          <option>数据工程师</option>
+          <option>算法工程师</option>
+          <option>业务评测员</option>
+          <option>外部标注员</option>
+        </select>
+      </div>
+      <div class="bg-[#feeceb] text-danger p-3 rounded-lg text-[12px] leading-relaxed">
+        ⚠️ 修改角色后，该成员当前拥有的“模型训练”权限将被立即回收。
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('changeRoleModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('changeRoleModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">确认变更</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>

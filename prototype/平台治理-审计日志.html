@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>审计日志 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' }, ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' }, line: '#e6eaf2', canvas: '#f5f7fb', ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8' } } } }
+</script>
+<style>
+  input, select { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  ::-webkit-scrollbar{width:8px;height:8px} ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+  
+  /* 弹窗动画 */
+  .modal-enter { animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* 代码块 */
+  .code-block { background: #0f172a; color: #cbd5e1; font-family: 'Consolas', monospace; font-size: 12px; border-radius: 6px; padding: 12px; line-height: 1.6; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary">行业大模型训练验证平台 <span class="text-ink-3 text-xs ml-1">ModelForge</span></div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]"><span class="w-2 h-2 rounded-full bg-ok"></span>租户：某行业客户A · 项目：智能问答模型</div>
+  <div class="flex-1"></div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">平台治理</div>
+  <a href="平台治理-租户管理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 租户与项目</a>
+  <a href="平台治理-成员角色.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 成员与权限</a>
+  <a href="平台治理-算力资源.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 算力资源池</a>
+  <a href="平台治理-审计日志.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 审计日志</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)] space-y-5">
+
+  <!-- 页头 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">审计日志</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">全平台操作留痕 · 满足“数据不出域”合规审计要求</div>
+    </div>
+    <div class="flex gap-2.5">
+      <button class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px] font-medium hover:border-primary hover:text-primary transition">导出合规报告 (PDF)</button>
+      <button class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">导出原始日志 (CSV)</button>
+    </div>
+  </div>
+
+  <!-- 筛选工具栏 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm p-3 flex flex-wrap gap-3 items-center">
+    <div class="flex items-center gap-2">
+      <span class="text-[13px] text-ink-2 whitespace-nowrap">时间范围：</span>
+      <select class="!w-32"><option>今天</option><option>最近 7 天</option><option>最近 30 天</option><option>自定义</option></select>
+    </div>
+    <div class="w-px h-5 bg-line mx-1"></div>
+    <div class="flex items-center gap-2">
+      <span class="text-[13px] text-ink-2 whitespace-nowrap">操作类型：</span>
+      <select class="!w-36">
+        <option>全部类型</option>
+        <option>登录认证</option>
+        <option>数据操作</option>
+        <option>训练与模型</option>
+        <option>权限与治理</option>
+      </select>
+    </div>
+    <div class="w-px h-5 bg-line mx-1"></div>
+    <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+      <span class="text-[13px] text-ink-2 whitespace-nowrap">操作人：</span>
+      <input type="text" placeholder="输入姓名或账号搜索…" class="!py-1.5">
+    </div>
+    <button class="bg-primary text-white px-5 py-1.5 rounded-lg text-[13px] font-medium hover:bg-primary-dark transition">查询</button>
+  </div>
+
+  <!-- 日志列表 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+    <table class="w-full text-left text-[13px]">
+      <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+        <tr>
+          <th class="font-medium px-4 py-3 w-[160px]">操作时间</th>
+          <th class="font-medium px-4 py-3 w-[140px]">操作人</th>
+          <th class="font-medium px-4 py-3 w-[120px]">操作分类</th>
+          <th class="font-medium px-4 py-3">操作详情</th>
+          <th class="font-medium px-4 py-3 w-[140px]">来源 IP</th>
+          <th class="font-medium px-4 py-3 w-[80px] text-right">详情</th>
+        </tr>
+      </thead>
+      <tbody class="text-ink-2 divide-y divide-line">
+        
+        <!-- 训练操作 -->
+        <tr class="hover:bg-[#fafbff]">
+          <td class="px-4 py-3 text-ink-3 whitespace-nowrap">2023-11-05 10:42:10</td>
+          <td class="px-4 py-3"><span class="font-medium text-ink">张工</span><br><span class="text-[10px] text-ink-3">zhang@domain.com</span></td>
+          <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs whitespace-nowrap">模型训练</span></td>
+          <td class="px-4 py-3">提交训练任务 <b>偏好对齐-Qwen2.5-7B-v3</b>，分配资源 A100×2</td>
+          <td class="px-4 py-3 text-ink-3">192.168.1.104</td>
+          <td class="px-4 py-3 text-right"><a href="#" onclick="openModal('logDetailModal')" class="text-primary hover:underline">查看</a></td>
+        </tr>
+
+        <!-- 评测操作 -->
+        <tr class="hover:bg-[#fafbff]">
+          <td class="px-4 py-3 text-ink-3 whitespace-nowrap">2023-11-05 10:15:44</td>
+          <td class="px-4 py-3"><span class="font-medium text-ink">王业务</span><br><span class="text-[10px] text-ink-3">wang@domain.com</span></td>
+          <td class="px-4 py-3"><span class="bg-[#e7f8f0] text-ok px-2 py-0.5 rounded text-xs whitespace-nowrap">主观评测</span></td>
+          <td class="px-4 py-3">提交主观打分 32 题，系统自动沉淀 28 组 DPO 偏好对至数据集 <b>工单偏好对集</b></td>
+          <td class="px-4 py-3 text-ink-3">192.168.1.108</td>
+          <td class="px-4 py-3 text-right"><a href="#" onclick="openModal('logDetailModal')" class="text-primary hover:underline">查看</a></td>
+        </tr>
+
+        <!-- 数据操作 -->
+        <tr class="hover:bg-[#fafbff]">
+          <td class="px-4 py-3 text-ink-3 whitespace-nowrap">2023-11-05 09:50:18</td>
+          <td class="px-4 py-3"><span class="font-medium text-ink">李数据</span><br><span class="text-[10px] text-ink-3">li@domain.com</span></td>
+          <td class="px-4 py-3"><span class="bg-[#fef4e6] text-warn px-2 py-0.5 rounded text-xs whitespace-nowrap">数据资产</span></td>
+          <td class="px-4 py-3">上传本地数据集 <b>行业术语指令集 v1</b> (3,200 条)，触发敏感信息脱敏检查</td>
+          <td class="px-4 py-3 text-ink-3">192.168.1.112</td>
+          <td class="px-4 py-3 text-right"><a href="#" onclick="openModal('logDetailModal')" class="text-primary hover:underline">查看</a></td>
+        </tr>
+
+        <!-- 权限治理操作 (高风险) -->
+        <tr class="hover:bg-[#fafbff] bg-[#fffafa]/50">
+          <td class="px-4 py-3 text-ink-3 whitespace-nowrap">2023-11-04 18:20:00</td>
+          <td class="px-4 py-3"><span class="font-medium text-ink">管理员</span><br><span class="text-[10px] text-ink-3">admin@domain.com</span></td>
+          <td class="px-4 py-3"><span class="bg-[#feeceb] text-danger px-2 py-0.5 rounded text-xs whitespace-nowrap">权限变更</span></td>
+          <td class="px-4 py-3">调整成员 <b>张工</b> 角色：从 “数据工程师” 变更为 “算法工程师” (新增训练权限)</td>
+          <td class="px-4 py-3 text-ink-3">127.0.0.1</td>
+          <td class="px-4 py-3 text-right"><a href="#" onclick="openModal('logDetailModal')" class="text-primary hover:underline">查看</a></td>
+        </tr>
+
+        <!-- 导出操作 -->
+        <tr class="hover:bg-[#fafbff]">
+          <td class="px-4 py-3 text-ink-3 whitespace-nowrap">2023-11-04 15:30:12</td>
+          <td class="px-4 py-3"><span class="font-medium text-ink">李数据</span><br><span class="text-[10px] text-ink-3">li@domain.com</span></td>
+          <td class="px-4 py-3"><span class="bg-[#f0edfe] text-violet px-2 py-0.5 rounded text-xs whitespace-nowrap">数据导出</span></td>
+          <td class="px-4 py-3">导出数据集 <b>工单问答 SFT 集 v2</b> (12,400 条) 为 JSONL 格式</td>
+          <td class="px-4 py-3 text-ink-3">192.168.1.112</td>
+          <td class="px-4 py-3 text-right"><a href="#" onclick="openModal('logDetailModal')" class="text-primary hover:underline">查看</a></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 分页 -->
+  <div class="flex items-center justify-between mt-4 text-[13px] text-ink-2">
+    <div class="text-ink-3 flex items-center gap-2">
+      <span>共 12,840 条日志</span>
+      <span class="text-[11px] text-ink-3 bg-[#f2f4f7] px-2 py-0.5 rounded" title="合规要求：日志至少保留 180 天">日志保留：180天</span>
+    </div>
+    <div class="flex items-center gap-1">
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white text-ink-3 cursor-not-allowed">上一页</button>
+      <button class="px-2.5 py-1.5 border border-primary rounded-md bg-primary text-white">1</button>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">2</button>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">3</button>
+      <span class="px-1 text-ink-3">…</span>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">下一页</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ================= 弹窗：日志详情（Payload 审计） ================= -->
+<div id="logDetailModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[640px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <div>
+        <h3 class="text-[15px] font-bold text-ink">审计日志详情</h3>
+        <div class="text-xs text-ink-3 mt-0.5 font-mono">Log ID: audit-20231105104210-8f9a</div>
+      </div>
+      <button onclick="closeModal('logDetailModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    
+    <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+      <!-- 基础信息 -->
+      <div class="grid grid-cols-2 gap-4 text-[13px]">
+        <div class="flex justify-between border-b border-line pb-2"><span class="text-ink-3">操作人</span><span class="font-medium">张工 (zhang@domain.com)</span></div>
+        <div class="flex justify-between border-b border-line pb-2"><span class="text-ink-3">操作时间</span><span class="font-medium">2023-11-05 10:42:10</span></div>
+        <div class="flex justify-between border-b border-line pb-2"><span class="text-ink-3">来源 IP</span><span class="font-medium">192.168.1.104</span></div>
+        <div class="flex justify-between border-b border-line pb-2"><span class="text-ink-3">User Agent</span><span class="font-medium text-[11px]">Chrome 118 / Mac OS</span></div>
+      </div>
+
+      <!-- 操作载荷 (Payload 追踪) -->
+      <div>
+        <label class="block text-[13px] font-medium mb-2">操作载荷 (Payload)</label>
+        <div class="code-block">
+{
+  <span class="text-[#93c5fd]">"action"</span>: <span class="text-[#86efac]">"CREATE_TRAINING_TASK"</span>,
+  <span class="text-[#93c5fd]">"task_name"</span>: <span class="text-[#86efac]">"偏好对齐-Qwen2.5-7B-v3"</span>,
+  <span class="text-[#93c5fd]">"base_model"</span>: <span class="text-[#86efac]">"Qwen2.5-7B-Instruct"</span>,
+  <span class="text-[#93c5fd]">"dataset_ids"</span>: [<span class="text-[#86efac]">"ds_992"</span>, <span class="text-[#86efac]">"ds_993"</span>],
+  <span class="text-[#93c5fd]">"resources"</span>: { <span class="text-[#93c5fd]">"gpu_type"</span>: <span class="text-[#86efac]">"A100-80G"</span>, <span class="text-[#93c5fd]">"count"</span>: 2 }
+}
+        </div>
+      </div>
+
+      <div class="bg-[#eef3fe] p-3 text-[12px] text-primary rounded-lg flex gap-2">
+        <span>ℹ️</span>
+        <div>本日志采用防篡改哈希校验 (SHA-256)，已同步至本地合规存储节点。数据不出域。</div>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('logDetailModal')" class="bg-white border border-line text-ink-2 rounded-lg px-6 py-2 text-[13px] hover:border-primary transition">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>

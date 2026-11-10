@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算力资源池 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' }, ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' }, line: '#e6eaf2', canvas: '#f5f7fb', ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8' } } } }
+</script>
+<style>
+  input, select { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  ::-webkit-scrollbar{width:8px;height:8px} ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+  
+  .modal-enter { animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  .drawer-enter { animation: slide-in 0.3s ease-out; }
+  @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+  /* GPU 色块 */
+  .gpu-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; border-radius: 6px; border: 1px solid; transition: all 0.2s; cursor: pointer; }
+  .gpu-box:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+  .gpu-idle { background: #e7f8f0; border-color: rgba(18, 183, 106, 0.3); color: #12b76a; }
+  .gpu-busy { background: #feeceb; border-color: rgba(240, 68, 56, 0.3); color: #f04438; }
+  .gpu-maint { background: #f2f4f7; border-color: #d0d5dd; color: #98a2b3; cursor: not-allowed; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏与侧栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary">行业大模型训练验证平台 <span class="text-ink-3 text-xs ml-1">ModelForge</span></div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]"><span class="w-2 h-2 rounded-full bg-ok"></span>租户：某行业客户A · 项目：智能问答模型</div>
+  <div class="flex-1"></div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold">管</button>
+</header>
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">平台治理</div>
+  <a href="平台治理-租户管理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 租户与项目</a>
+  <a href="平台治理-成员角色.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 成员与权限</a>
+  <a href="平台治理-算力资源.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 算力资源池</a>
+  <a href="平台治理-审计日志.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 审计日志</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)] space-y-6 relative">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">算力资源池</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">全局 GPU 统一调度、拓扑监控与节点运维</div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="openModal('nodeModal')" class="bg-white border border-line text-ink-2 rounded-lg px-4 py-2 text-[13px] font-medium hover:border-primary hover:text-primary transition">+ 接入新节点</button>
+      <button onclick="openModal('quotaModal')" class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">+ 分配算力配额</button>
+    </div>
+  </div>
+
+  <!-- 指标卡 (省略相同逻辑，保留代码结构) -->
+  <div class="grid grid-cols-4 gap-4">
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4"><div class="text-ink-3 text-[13px]">集群总算力卡</div><div class="text-[26px] font-bold mt-1">8 <span class="text-sm font-normal text-ink-3">× A100-80G</span></div></div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4"><div class="text-ink-3 text-[13px]">当前已分配</div><div class="text-[26px] font-bold text-warn mt-1">5 <span class="text-sm font-normal text-ink-3">张</span></div></div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4"><div class="text-ink-3 text-[13px]">当前空闲</div><div class="text-[26px] font-bold text-ok mt-1">3 <span class="text-sm font-normal text-ink-3">张</span></div></div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4"><div class="text-ink-3 text-[13px]">今日卡时消耗</div><div class="text-[26px] font-bold mt-1">42 <span class="text-sm font-normal text-ink-3">小时</span></div></div>
+  </div>
+
+  <!-- 节点拓扑与维护管理 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm p-5">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-[15px] font-semibold">物理机与卡拓扑状态</h3>
+    </div>
+    
+    <div class="grid grid-cols-2 gap-4">
+      
+      <!-- 节点 1 (健康) -->
+      <div class="border border-line rounded-lg p-4 relative group">
+        <div class="flex justify-between items-center mb-3">
+          <div class="text-[13px] font-medium text-ink flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-ok"></span> gpu-node-01</div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-ink-3">IP: 192.168.10.11</span>
+            <!-- 维护下拉操作 -->
+            <div class="relative">
+              <button class="text-ink-3 hover:text-primary text-lg leading-none px-1" onclick="toggleMenu(event, 'menu1')">⋮</button>
+              <div id="menu1" class="hidden absolute right-0 top-6 w-32 bg-white border border-line rounded shadow-lg z-20 py-1">
+                <button onclick="openModal('maintenanceModal')" class="w-full text-left px-3 py-2 text-[13px] text-ink-2 hover:bg-[#fafbfd] hover:text-warn">设为维护状态</button>
+                <button onclick="return confirm('解绑节点将中断正在运行的任务！')" class="w-full text-left px-3 py-2 text-[13px] text-danger hover:bg-[#feeceb]">移除节点</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <div class="gpu-box gpu-busy" onclick="openDrawer('taskDrawer')"><span class="font-bold text-xs">GPU 0</span><span class="text-[10px] mt-1 truncate w-full text-center">训练任务</span></div>
+          <div class="gpu-box gpu-busy" onclick="openDrawer('taskDrawer')"><span class="font-bold text-xs">GPU 1</span><span class="text-[10px] mt-1 truncate w-full text-center">训练任务</span></div>
+          <div class="gpu-box gpu-idle" onclick="showToast('GPU 2 空闲')"><span class="font-bold text-xs">GPU 2</span><span class="text-[10px] mt-1">空闲</span></div>
+          <div class="gpu-box gpu-idle" onclick="showToast('GPU 3 空闲')"><span class="font-bold text-xs">GPU 3</span><span class="text-[10px] mt-1">空闲</span></div>
+        </div>
+      </div>
+
+      <!-- 节点 2 (维护中示例) -->
+      <div class="border border-warn/40 bg-warn/5 rounded-lg p-4 relative group">
+        <div class="flex justify-between items-center mb-3">
+          <div class="text-[13px] font-medium text-ink flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-warn"></span> gpu-node-02 <span class="text-[10px] bg-warn text-white px-1.5 py-0.5 rounded">维护中</span></div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-ink-3">IP: 192.168.10.12</span>
+            <div class="relative">
+              <button class="text-ink-3 hover:text-primary text-lg leading-none px-1" onclick="toggleMenu(event, 'menu2')">⋮</button>
+              <div id="menu2" class="hidden absolute right-0 top-6 w-32 bg-white border border-line rounded shadow-lg z-20 py-1">
+                <button onclick="showToast('已恢复节点上线')" class="w-full text-left px-3 py-2 text-[13px] text-ok hover:bg-[#fafbfd]">恢复运行</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-2 opacity-60">
+          <div class="gpu-box gpu-maint"><span class="font-bold text-xs">GPU 0</span><span class="text-[10px] mt-1">停机</span></div>
+          <div class="gpu-box gpu-maint"><span class="font-bold text-xs">GPU 1</span><span class="text-[10px] mt-1">停机</span></div>
+          <div class="gpu-box gpu-maint"><span class="font-bold text-xs">GPU 2</span><span class="text-[10px] mt-1">停机</span></div>
+          <div class="gpu-box gpu-maint"><span class="font-bold text-xs">GPU 3</span><span class="text-[10px] mt-1">停机</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ================= 弹窗 1：分配算力配额 ================= -->
+<div id="quotaModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[480px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">分配算力配额</h3>
+      <button onclick="closeModal('quotaModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="form-label">选择租户 <span class="text-danger">*</span></label>
+        <select><option>某行业客户A</option><option>某行业客户B</option></select>
+      </div>
+      <div>
+        <label class="form-label">分配 GPU 上限 <span class="text-danger">*</span></label>
+        <div class="flex items-center gap-2">
+          <input type="number" value="4" class="!w-24 text-center"><span class="text-ink-2 text-sm">张</span>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('quotaModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('quotaModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">确认分配</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 弹窗 2：接入新节点 ================= -->
+<div id="nodeModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[500px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">接入新算力节点</h3>
+      <button onclick="closeModal('nodeModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="form-label">节点名称 <span class="text-danger">*</span></label>
+        <input type="text" placeholder="例如：gpu-node-03">
+      </div>
+      <div>
+        <label class="form-label">节点 IP 地址 <span class="text-danger">*</span></label>
+        <input type="text" placeholder="例如：192.168.10.13">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">GPU 型号</label>
+          <select><option>A100-80G</option><option>H800-80G</option><option>RTX 4090-24G</option></select>
+        </div>
+        <div>
+          <label class="form-label">卡数</label>
+          <input type="number" value="8">
+        </div>
+      </div>
+      <div class="bg-[#fafbfd] border border-line rounded p-3 text-xs text-ink-3">
+        部署前请确保已在该节点安装 Docker、NVIDIA Container Toolkit，并开放了 22 端口及 8080 通讯端口。
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('nodeModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('nodeModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">验证并接入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 弹窗 3：节点维护确认 ================= -->
+<div id="maintenanceModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[420px] overflow-hidden modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">设置节点维护状态</h3>
+      <button onclick="closeModal('maintenanceModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="text-[13px] text-ink-2">
+        将节点 <b>gpu-node-01</b> 设为维护状态后，平台将停止向该节点调度新任务，但不会驱逐正在运行的任务。
+      </div>
+      <div>
+        <label class="form-label">维护原因（选填）</label>
+        <input type="text" placeholder="例如：硬件升级 / 网络故障排查">
+      </div>
+      <label class="flex items-center gap-2 text-[13px] text-danger">
+        <input type="checkbox" class="w-4 h-4 rounded border-danger text-danger focus:ring-danger">
+        同时强行驱逐该节点上正在运行的任务
+      </label>
+    </div>
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeModal('maintenanceModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('maintenanceModal'); showToast('节点已进入维护状态')" class="bg-warn text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-[#d97706] transition">确认维护</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 抽屉：任务占用详情 ================= -->
+<div id="taskDrawer" class="hidden fixed inset-0 bg-black/40 z-50 flex justify-end">
+  <div class="w-[400px] h-full bg-white shadow-2xl flex flex-col drawer-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center shrink-0">
+      <h3 class="text-[15px] font-bold text-ink">GPU 占用详情</h3>
+      <button onclick="closeDrawer('taskDrawer')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <div>
+        <h4 class="text-[13px] font-semibold text-ink mb-2">关联任务</h4>
+        <div class="bg-[#fafbfd] border border-line rounded-lg p-3">
+          <div class="text-[13px] font-medium text-primary">偏好对齐-Qwen2.5-7B-v3</div>
+          <div class="text-xs text-ink-3 mt-1">提交人：张工 · 状态：运行中</div>
+        </div>
+      </div>
+      <div class="pt-4 border-t border-line">
+        <button onclick="return confirm('强行终止将丢失未保存进度，确定吗？')" class="w-full border border-danger text-danger bg-white rounded-lg py-2 text-[13px] font-medium hover:bg-[#feeceb]">强行终止该任务</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 提示 -->
+<div id="toast" class="hidden fixed top-20 left-1/2 transform -translate-x-1/2 bg-ink text-white px-5 py-2.5 rounded-lg shadow-lg z-50 text-[13px]"></div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+  function openDrawer(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeDrawer(id) { document.getElementById(id).classList.add('hidden'); }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function toggleMenu(e, id) {
+    e.stopPropagation();
+    document.querySelectorAll('[id^="menu"]').forEach(el => {
+      if (el.id !== id) el.classList.add('hidden');
+    });
+    document.getElementById(id).classList.toggle('hidden');
+  }
+
+  // 点击页面其他位置关闭下拉菜单
+  document.addEventListener('click', () => {
+    document.querySelectorAll('[id^="menu"]').forEach(el => el.classList.add('hidden'));
+  });
+</script>
+</body>
+</html>

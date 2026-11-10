@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化结果对比 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+    ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+    line: '#e6eaf2', canvas: '#f5f7fb',
+    ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+  } } }
+}
+</script>
+<style>
+  /* 基础表单样式 */
+  input[type="text"], select { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 进度条动画 */
+  .bar-fill { height: 100%; border-radius: 9999px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  /* 标识徽章 */
+  .badge-original { background: #f2f4f7; color: #5b6678; }
+  .badge-quant { background: #eef3fe; color: #2f6fed; font-weight: 600; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)]">
+  
+  <!-- 面包屑与页头 -->
+  <div class="text-[13px] text-ink-3 mb-2">
+    <a href="模型资产.html" class="text-primary hover:underline mr-1">模型资产</a> / <b>量化结果对比</b>
+  </div>
+  
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold">微调 v3 · INT4 (GPTQ)</h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[#e7f8f0] text-ok flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-ok"></span> 量化完成
+        </span>
+      </div>
+      <div class="text-ink-3 text-[13px] mt-1 flex gap-4">
+        <span>量化前：<b class="text-ink">微调模型 v3</b></span>
+        <span>量化算法：<b class="text-ink">GPTQ (INT4)</b></span>
+        <span>校准集：<b class="text-ink">工单问答 SFT 集 v3</b></span>
+      </div>
+    </div>
+    <div class="flex gap-2.5">
+      <button class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px] font-medium hover:border-primary hover:text-primary transition">下载量化模型</button>
+      <button class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">复制部署脚本</button>
+    </div>
+  </div>
+
+  <!-- 顶部结论横幅 -->
+  <div class="bg-[#fafbfd] border border-primary/20 rounded-xl p-5 mb-6 shadow-sm">
+    <div class="flex gap-4 items-center">
+      <div class="w-10 h-10 rounded-full bg-[#e7f8f0] text-ok flex items-center justify-center shrink-0">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      </div>
+      <div>
+        <h3 class="text-[15px] font-bold text-ink mb-1">综合结论：适合边缘部署，性价比极高</h3>
+        <p class="text-[13px] text-ink-2 leading-relaxed">
+          模型体积缩减了 <b class="text-primary">70.7%</b>，业务集准确率仅下降 <b class="text-warn">1.9%</b>。虽然极个别长文本案例出现幻觉，但整体表现稳定，建议在显存受限的边缘设备或高并发场景中替换原模型部署。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 核心指标对比区 (三栏) -->
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    
+    <!-- 1. 体积对比 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-5">
+      <h3 class="text-[14px] font-semibold text-ink mb-4">模型体积</h3>
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-original px-2 py-0.5 rounded">原模型 (FP16)</span>
+            <span class="font-medium">14.0 GB</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-[#98a2b3]" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-quant px-2 py-0.5 rounded">INT4 量化模型</span>
+            <span class="font-bold text-ok">4.1 GB</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-primary" style="width: 29.3%;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-t border-line text-center">
+        <span class="text-2xl font-bold text-ok">-70.7%</span>
+        <span class="text-xs text-ink-3 block mt-1">大幅节省磁盘与内存占用</span>
+      </div>
+    </div>
+
+    <!-- 2. 精度对比 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-5">
+      <h3 class="text-[14px] font-semibold text-ink mb-4">业务集准确率</h3>
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-original px-2 py-0.5 rounded">原模型 (FP16)</span>
+            <span class="font-medium">84.0%</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-[#8ab0ff]" style="width: 84%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-quant px-2 py-0.5 rounded">INT4 量化模型</span>
+            <span class="font-bold text-warn">82.1%</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-warn" style="width: 82.1%;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-t border-line text-center">
+        <span class="text-2xl font-bold text-warn">-1.9%</span>
+        <span class="text-xs text-ink-3 block mt-1">精度损失极小，仍在可用红线内</span>
+      </div>
+    </div>
+
+    <!-- 3. 硬件收益 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-5">
+      <h3 class="text-[14px] font-semibold text-ink mb-4">推理显存占用预估</h3>
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-original px-2 py-0.5 rounded">原模型 (FP16)</span>
+            <span class="font-medium">28 GB</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-[#98a2b3]" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[12px] mb-1">
+            <span class="badge-quant px-2 py-0.5 rounded">INT4 量化模型</span>
+            <span class="font-bold text-ok">8 GB</span>
+          </div>
+          <div class="h-3 bg-[#eef1f6] rounded-full overflow-hidden">
+            <div class="bar-fill bg-ok" style="width: 28.5%;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-t border-line text-center">
+        <span class="text-2xl font-bold text-ok">1 张 A10</span>
+        <span class="text-xs text-ink-3 block mt-1">原本需 A100 部署，现在单张消费级显卡即可跑</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对话评测案例对比 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm flex flex-col">
+    <div class="px-5 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <div>
+        <h3 class="text-[15px] font-semibold text-ink">抽样对话效果对比 (模拟测试)</h3>
+        <div class="text-xs text-ink-3 mt-0.5">挑选了业务集中最容易受量化影响的“多条件判定”题目进行对比</div>
+      </div>
+    </div>
+
+    <div class="p-5 space-y-6">
+      
+      <!-- 案例 1 -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs font-medium">测试 Prompt</span>
+          <span class="text-[13px] text-ink font-medium">客户反馈设备充电时发烫严重，是否属于正常现象？应该怎么答复？</span>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <!-- 原模型 -->
+          <div class="border border-line rounded-lg overflow-hidden">
+            <div class="bg-[#fafbfd] px-3 py-2 border-b border-line flex justify-between items-center">
+              <span class="text-xs font-semibold text-ink-2">原模型 (FP16)</span>
+              <span class="text-[10px] text-ok bg-[#e7f8f0] px-1.5 py-0.5 rounded">逻辑完整</span>
+            </div>
+            <div class="p-3 text-[13px] text-ink-2 leading-relaxed">
+              设备充电时轻微发热属于正常现象；若出现明显发烫、外壳变形或异味，应立即停止充电并联系售后检测。保修期内非人为损坏可免费检测。
+            </div>
+          </div>
+          
+          <!-- 量化模型 -->
+          <div class="border border-line rounded-lg overflow-hidden">
+            <div class="bg-[#fafbfd] px-3 py-2 border-b border-line flex justify-between items-center">
+              <span class="text-xs font-semibold text-primary">INT4 量化模型</span>
+              <span class="text-[10px] text-warn bg-[#fef4e6] px-1.5 py-0.5 rounded">略有偏差</span>
+            </div>
+            <div class="p-3 text-[13px] text-ink-2 leading-relaxed">
+              设备充电发热是正常的。但如果<span class="bg-[#fef4e6] text-warn px-1 rounded">非常烫手</span>，建议先<span class="bg-[#fef4e6] text-warn px-1 rounded">不要使用</span>，找我们售后看一下。在保修期内是可以免费修的。
+            </div>
+            <div class="bg-[#fef4e6]/50 px-3 py-1.5 text-[11px] text-warn border-t border-line">
+              分析：量化后遗漏了“外壳变形/异味”等判定条件，且使用了“不要使用”这类不规范的客服话术，但核心意思未严重偏离。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 案例 2 -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs font-medium">测试 Prompt</span>
+          <span class="text-[13px] text-ink font-medium">根据业务规范，工单升级到二级处理的时限是？</span>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <!-- 原模型 -->
+          <div class="border border-line rounded-lg overflow-hidden">
+            <div class="bg-[#fafbfd] px-3 py-2 border-b border-line flex justify-between items-center">
+              <span class="text-xs font-semibold text-ink-2">原模型 (FP16)</span>
+              <span class="text-[10px] text-ok bg-[#e7f8f0] px-1.5 py-0.5 rounded">精准</span>
+            </div>
+            <div class="p-3 text-[13px] text-ink-2 leading-relaxed">
+              根据业务规范，工单升级到二级处理的时限为 8 小时。
+            </div>
+          </div>
+          
+          <!-- 量化模型 -->
+          <div class="border border-line rounded-lg overflow-hidden">
+            <div class="bg-[#fafbfd] px-3 py-2 border-b border-line flex justify-between items-center">
+              <span class="text-xs font-semibold text-primary">INT4 量化模型</span>
+              <span class="text-[10px] text-ok bg-[#e7f8f0] px-1.5 py-0.5 rounded">精准</span>
+            </div>
+            <div class="p-3 text-[13px] text-ink-2 leading-relaxed">
+              工单升级到二级处理的时限是 8 小时。
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>评测基准 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' }, ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' }, line: '#e6eaf2', canvas: '#f5f7fb', ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8' } } } }
+</script>
+<style>
+  input, select, textarea { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; transition: all 0.2s; }
+  input:focus, select:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  ::-webkit-scrollbar{width:8px;height:8px} ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+  
+  .filter-chip.active { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+  
+  .modal-enter { animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* 自定义单选卡片 */
+  .radio-card { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid #e6eaf2; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+  .radio-card:hover { border-color: #2f6fed; background-color: #fafbff; }
+  .radio-card.sel { border-color: #2f6fed; background-color: #eef3fe; box-shadow: 0 0 0 1px #2f6fed; }
+  .radio-card .r-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #98a2b3; margin-top: 2px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+  .radio-card.sel .r-dot { border-color: #2f6fed; border-width: 5px; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary">行业大模型训练验证平台 <span class="text-ink-3 text-xs ml-1">ModelForge</span></div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]"><span class="w-2 h-2 rounded-full bg-ok"></span>租户：某行业客户A · 项目：智能问答模型</div>
+  <div class="flex-1"></div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">平台治理</div>
+  <a href="平台治理-租户管理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 租户与项目</a>
+  <a href="平台治理-成员角色.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 成员与权限</a>
+  <a href="平台治理-算力资源.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 算力资源池</a>
+  <a href="平台治理-审计日志.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas"><span class="w-[18px] text-center">⚒</span> 审计日志</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)] space-y-5">
+
+  <!-- 页头 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">评测基准</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">管理通用能力集（C-Eval/MMLU）与行业业务评测集</div>
+    </div>
+    <button onclick="openModal('createEvalModal')" class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition shadow-sm">+ 新建评测集</button>
+  </div>
+
+  <!-- 指标卡 -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">评测集总数</div>
+      <div class="text-[24px] font-bold mt-1">8</div>
+      <div class="text-xs text-ink-3 mt-1">通用集 2 · 业务集 6</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">累计题目数量</div>
+      <div class="text-[24px] font-bold mt-1">42,680 <span class="text-sm font-normal text-ink-3">道</span></div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">本月自动合成题目</div>
+      <div class="text-[24px] font-bold text-primary mt-1">1,520</div>
+      <div class="text-xs text-ink-3 mt-1">基于大模型自动构造</div>
+    </div>
+  </div>
+
+  <!-- 筛选工具栏 -->
+  <div class="flex flex-wrap items-center gap-2.5">
+    <div class="flex-1 min-w-[200px]">
+      <input type="text" placeholder="搜索评测集名称…" class="!py-2">
+    </div>
+    <div class="flex gap-2">
+      <button class="filter-chip active whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">全部</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">通用评测集</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">业务评测集</button>
+    </div>
+  </div>
+
+  <!-- 列表表格 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+    <table class="w-full text-left text-[13px]">
+      <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+        <tr>
+          <th class="font-medium px-4 py-3">评测集名称</th>
+          <th class="font-medium px-4 py-3">类型</th>
+          <th class="font-medium px-4 py-3">题目数量</th>
+          <th class="font-medium px-4 py-3">支持题型</th>
+          <th class="font-medium px-4 py-3">来源方式</th>
+          <th class="font-medium px-4 py-3">创建时间</th>
+          <th class="font-medium px-4 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="text-ink-2 divide-y divide-line">
+        
+        <!-- C-Eval -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">C-Eval</td>
+          <td class="px-4 py-3"><span class="bg-[#f2f4f7] text-ink-2 px-2 py-0.5 rounded text-xs">通用评测集</span></td>
+          <td class="px-4 py-3">12,342</td>
+          <td class="px-4 py-3">多项选择题</td>
+          <td class="px-4 py-3">系统内置</td>
+          <td class="px-4 py-3 text-ink-3">2023-10-01</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">预览题目</a>
+          </td>
+        </tr>
+
+        <!-- MMLU -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">MMLU</td>
+          <td class="px-4 py-3"><span class="bg-[#f2f4f7] text-ink-2 px-2 py-0.5 rounded text-xs">通用评测集</span></td>
+          <td class="px-4 py-3">14,042</td>
+          <td class="px-4 py-3">多项选择题</td>
+          <td class="px-4 py-3">系统内置</td>
+          <td class="px-4 py-3 text-ink-3">2023-10-01</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">预览题目</a>
+          </td>
+        </tr>
+
+        <!-- 业务集 1 (客户提供) -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">工单业务问答评测集 v2</td>
+          <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs">业务评测集</span></td>
+          <td class="px-4 py-3">860</td>
+          <td class="px-4 py-3">单选 / 问答</td>
+          <td class="px-4 py-3">客户上传 (Excel)</td>
+          <td class="px-4 py-3 text-ink-3">2023-10-12</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">预览题目</a>
+            <a href="#" class="text-primary hover:underline">导出</a>
+          </td>
+        </tr>
+
+        <!-- 业务集 2 (自动构造) -->
+        <tr class="hover:bg-[#fafbff] transition bg-[#fafbff]/30">
+          <td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">售后规范自动合成集 v1</td>
+          <td class="px-4 py-3"><span class="bg-[#eef3fe] text-primary px-2 py-0.5 rounded text-xs">业务评测集</span></td>
+          <td class="px-4 py-3">1,520</td>
+          <td class="px-4 py-3">单选 / 判断</td>
+          <td class="px-4 py-3"><span class="text-primary">大模型自动构造</span></td>
+          <td class="px-4 py-3 text-ink-3">2023-10-25</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <a href="#" class="text-primary hover:underline">预览题目</a>
+            <a href="#" class="text-primary hover:underline">重新合成</a>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 分页 -->
+  <div class="flex items-center justify-between mt-4 text-[13px] text-ink-2">
+    <div class="text-ink-3">共 8 个评测集</div>
+    <div class="flex items-center gap-1">
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white text-ink-3 cursor-not-allowed">上一页</button>
+      <button class="px-2.5 py-1.5 border border-primary rounded-md bg-primary text-white">1</button>
+      <button class="px-2.5 py-1.5 border border-line rounded-md bg-white hover:border-primary text-ink-2">下一页</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ================= 弹窗 1：新建评测集 ================= -->
+<div id="createEvalModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[600px] overflow-hidden modal-enter flex flex-col">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd] shrink-0">
+      <h3 class="text-[15px] font-bold text-ink">新建评测集</h3>
+      <button onclick="closeModal('createEvalModal')" class="text-ink-3 hover:text-ink text-xl">&times;</button>
+    </div>
+    
+    <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+      
+      <div>
+        <label class="form-label">评测集名称 <span class="text-danger">*</span></label>
+        <input type="text" placeholder="例如：2024年业务知识测评 50 题">
+      </div>
+
+      <div>
+        <label class="form-label mb-3">构建方式 <span class="text-danger">*</span></label>
+        <div class="space-y-3">
+          <label class="radio-card sel" onclick="selectRadio(this)">
+            <div class="r-dot"></div>
+            <div class="flex-1">
+              <div class="text-[13px] font-medium text-ink">1. 上传本地题库（推荐）</div>
+              <div class="text-xs text-ink-3 mt-0.5">支持 Excel / JSONL 格式，需包含标准答案。</div>
+            </div>
+          </label>
+          <label class="radio-card" onclick="selectRadio(this)">
+            <div class="r-dot"></div>
+            <div class="flex-1">
+              <div class="text-[13px] font-medium text-ink">2. 从大模型自动构造 (合成数据)</div>
+              <div class="text-xs text-ink-3 mt-0.5">选择一份业务文档，由模型自动出题并生成标准答案。</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 自动构造的配置面板 (展示效果，如果选上传则隐藏) -->
+      <div id="autoConfig" class="bg-[#fafbfd] border border-line rounded-lg p-4 space-y-3 hidden">
+        <div>
+          <label class="form-label !text-xs">选择业务源文档</label>
+          <select><option>售后服务规范 v2 (已解析)</option></select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label !text-xs">生成题型</label>
+            <select><option>单选题 + 判断题</option></select>
+          </div>
+          <div>
+            <label class="form-label !text-xs">生成数量</label>
+            <input type="number" value="50">
+          </div>
+        </div>
+        <div>
+          <label class="form-label !text-xs">构造提示词 (Prompt)</label>
+          <textarea rows="2" class="!text-[12px]">请根据提供的售后规范文档，生成50道单选题。必须严格基于文档内容，不得捏造事实。</textarea>
+        </div>
+      </div>
+
+    </div>
+    
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd] shrink-0">
+      <button onclick="closeModal('createEvalModal')" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px]">取消</button>
+      <button onclick="closeModal('createEvalModal')" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">确认新建</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+  function selectRadio(el) {
+    document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('sel'));
+    el.classList.add('sel');
+    
+    // 简单判断：如果选的是第二个（自动构造），显示配置面板
+    const isAuto = el.innerText.includes('自动构造');
+    document.getElementById('autoConfig').classList.toggle('hidden', !isAuto);
+  }
+
+  // 筛选 Chip
+  const chips = document.querySelectorAll('.filter-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', function(){
+      chips.forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主观评测管理 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+        ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+        line: '#e6eaf2',
+        canvas: '#f5f7fb',
+        ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+      },
+      fontFamily: { sans:['-apple-system','PingFang SC','Microsoft YaHei','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  /* 表单样式与滚动条 */
+  input[type="text"], input[type="number"], select, textarea { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 筛选 Chip */
+  .filter-chip.active { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+
+  /* 弹窗动画 */
+  .modal-enter { animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* 多选人员 Chip */
+  .user-chip { display: inline-flex; align-items: center; gap: 4px; background: #eef3fe; color: #2f6fed; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid #2f6fed; cursor: pointer; }
+  .user-chip:hover { background: #feeceb; color: #f04438; border-color: #f04438; }
+  .user-chip .close { font-size: 14px; line-height: 1; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索评测任务…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)] relative">
+
+  <!-- 页头 -->
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold">主观评测管理</h1>
+      <div class="text-ink-3 text-[13px] mt-0.5">管理双盲打分任务 · 监控打分进度 · 沉淀偏好数据</div>
+    </div>
+    <!-- 绑定了弹窗事件 -->
+    <button onclick="openCreateModal()" class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition">+ 新建打分任务</button>
+  </div>
+
+  <!-- 顶部汇总指标卡 -->
+  <div class="grid grid-cols-4 gap-4 mb-5">
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">进行中任务</div>
+      <div class="text-[24px] font-bold mt-1 text-primary">2</div>
+      <div class="text-xs text-ink-3 mt-1">共 4 名业务专家在处理</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">累计已打分</div>
+      <div class="text-[24px] font-bold mt-1">1,248 <span class="text-sm font-normal text-ink-3">题</span></div>
+      <div class="text-xs text-ok mt-1">生成偏好对 1,090 组</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">已完成任务</div>
+      <div class="text-[24px] font-bold mt-1">12</div>
+      <div class="text-xs text-ink-3 mt-1">数据已全部入库</div>
+    </div>
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">平均一致性(Kappa)</div>
+      <div class="text-[24px] font-bold text-ok mt-1">0.82</div>
+      <div class="text-xs text-ink-3 mt-1">打分员间一致性较高</div>
+    </div>
+  </div>
+
+  <!-- 筛选工具栏 -->
+  <div class="flex flex-wrap items-center gap-2.5 mb-4">
+    <div class="flex-1 min-w-[200px]">
+      <input type="text" placeholder="搜索任务名称 / 分配人员…" class="!py-2">
+    </div>
+    <div class="flex gap-2">
+      <button class="filter-chip active whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">全部</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">进行中</button>
+      <button class="filter-chip whitespace-nowrap px-3.5 py-1.5 rounded-full border border-line bg-white text-ink-2 text-[13px]">已完成</button>
+    </div>
+  </div>
+
+  <!-- 数据表格 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm overflow-hidden">
+    <table class="w-full text-left text-[13px]">
+      <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+        <tr>
+          <th class="font-medium px-4 py-3">任务名称</th>
+          <th class="font-medium px-4 py-3">对比模型</th>
+          <th class="font-medium px-4 py-3">问题集</th>
+          <th class="font-medium px-4 py-3 w-[200px]">总体进度</th>
+          <th class="font-medium px-4 py-3">分配人员</th>
+          <th class="font-medium px-4 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="text-ink-2 divide-y divide-line">
+        <!-- 进行中 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-ink">工单问答业务基线测试</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-1.5">
+              <span class="bg-[#eef3fe] text-primary px-1.5 py-0.5 rounded text-[11px]">微调 v3</span>
+              <span class="text-ink-3 text-xs">vs</span>
+              <span class="bg-[#f2f4f7] text-ink-2 px-1.5 py-0.5 rounded text-[11px]">基座</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">业务集 v2 (160题)</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-2 bg-[#eef1f6] rounded-full overflow-hidden">
+                <div class="h-full bg-primary rounded-full" style="width: 26%;"></div>
+              </div>
+              <span class="text-xs text-primary font-medium w-8">26%</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">王业务、李专家</td>
+          <td class="px-4 py-3 text-right space-x-2">
+            <a href="主观打分工作台.html" class="bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-1 rounded transition text-xs font-medium">继续打分</a>
+            <a href="主观评测结果.html" class="text-ink-2 hover:underline">进度详情</a>
+          </td>
+        </tr>
+        <!-- 已完成 -->
+        <tr class="hover:bg-[#fafbff] transition">
+          <td class="px-4 py-3 font-medium text-ink">SFT v2 模型主观评估</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-1.5">
+              <span class="bg-[#eef3fe] text-primary px-1.5 py-0.5 rounded text-[11px]">微调 v2</span>
+              <span class="text-ink-3 text-xs">vs</span>
+              <span class="bg-[#f2f4f7] text-ink-2 px-1.5 py-0.5 rounded text-[11px]">基座</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">业务集 v2 (860题)</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-2 bg-[#eef1f6] rounded-full overflow-hidden">
+                <div class="h-full bg-ok rounded-full" style="width: 100%;"></div>
+              </div>
+              <span class="text-xs text-ok font-medium w-8">100%</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">赵主管</td>
+          <td class="px-4 py-3 text-right space-x-2">
+            <a href="主观评测结果.html" class="text-primary hover:underline text-xs">查看结果</a>
+            <a href="#" class="text-primary hover:underline text-xs">导出偏好数据</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- ================= 新建打分任务弹窗 (新增) ================= -->
+<div id="createModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-[12px] shadow-xl w-[640px] max-w-[90vw] overflow-hidden flex flex-col modal-enter">
+    <div class="px-6 py-4 border-b border-line flex justify-between items-center bg-[#fafbfd]">
+      <h3 class="text-[15px] font-bold text-ink">新建主观打分任务</h3>
+      <button onclick="closeCreateModal()" class="text-ink-3 hover:text-ink text-lg leading-none">&times;</button>
+    </div>
+    
+    <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+      
+      <!-- 基础信息 -->
+      <div>
+        <label class="form-label">任务名称 <span class="text-danger">*</span></label>
+        <input type="text" placeholder="例如：工单问答业务基线测试" value="微调 v3 业务知识盲评">
+      </div>
+
+      <!-- 模型选择 -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">模型 A (Chosen 候选) <span class="text-danger">*</span></label>
+          <select>
+            <option>微调模型 v3 (最优)</option>
+            <option>微调模型 v2</option>
+            <option>微调+RAG 插件</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">模型 B (Rejected 候选) <span class="text-danger">*</span></label>
+          <select>
+            <option>基座 Qwen2.5-7B</option>
+            <option>微调模型 v2</option>
+            <option>微调模型 v3 (最优)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 评测集 -->
+      <div>
+        <label class="form-label">测评问题集 <span class="text-danger">*</span></label>
+        <select>
+          <option>工单业务问答评测集 v2 (860 题)</option>
+          <option>通用测试 100 题</option>
+          <option>最新收集的 Badcase 集 (50 题)</option>
+        </select>
+        <div class="text-xs text-ink-3 mt-1">系统将自动调用这两个模型生成回答，供人员盲评。</div>
+      </div>
+
+      <!-- 指派打分员 -->
+      <div>
+        <label class="form-label">指派打分员 <span class="text-danger">*</span></label>
+        <!-- 已选人员标签 -->
+        <div class="flex gap-2 mb-2">
+          <span class="user-chip" onclick="this.remove()">王业务 (业务专家) <span class="close">&times;</span></span>
+          <span class="user-chip" onclick="this.remove()">李专家 (质检主管) <span class="close">&times;</span></span>
+        </div>
+        <!-- 添加人员下拉 -->
+        <select class="!bg-[#fafbfd] !border-dashed">
+          <option>+ 添加其他业务人员 / 专家…</option>
+          <option>赵主管 (模型算法组)</option>
+          <option>孙客服 (一线客服)</option>
+        </select>
+        <div class="text-xs text-ink-3 mt-1">支持多选指派。多人评测将计算一致性系数(Kappa)。</div>
+      </div>
+
+      <!-- 评测配置 -->
+      <div class="bg-[#fafbfd] border border-line rounded-lg p-4">
+        <h4 class="text-[13px] font-semibold text-ink mb-3">盲评与打分规则</h4>
+        <div class="space-y-3">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked class="w-4 h-4 text-primary rounded border-line focus:ring-primary">
+            <span class="text-[13px] text-ink-2">强制开启 A/B 盲评（默认隐藏模型身份）</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked class="w-4 h-4 text-primary rounded border-line focus:ring-primary">
+            <span class="text-[13px] text-ink-2">打分后必须投注“谁更好”（直接生成 DPO 偏好数据）</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="px-6 py-4 border-t border-line flex justify-end gap-3 bg-[#fafbfd]">
+      <button onclick="closeCreateModal()" class="border border-line bg-white text-ink-2 rounded-lg px-4 py-2 text-[13px] hover:border-primary hover:text-primary transition">取消</button>
+      <button onclick="submitCreate()" class="bg-primary text-white rounded-lg px-6 py-2 text-[13px] font-medium hover:bg-primary-dark transition">创建并分发任务</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 筛选 Chip 切换
+  const chips = document.querySelectorAll('.filter-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', function(){
+      chips.forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // 弹窗控制
+  function openCreateModal() {
+    document.getElementById('createModal').classList.remove('hidden');
+  }
+  function closeCreateModal() {
+    document.getElementById('createModal').classList.add('hidden');
+  }
+  
+  function submitCreate() {
+    const btn = event.target;
+    btn.innerText = '正在生成回答并分发...';
+    btn.classList.add('opacity-70');
+    setTimeout(() => {
+      closeCreateModal();
+      btn.innerText = '创建并分发任务';
+      btn.classList.remove('opacity-70');
+    }, 1000);
+  }
+</script>
+</body>
+</html>

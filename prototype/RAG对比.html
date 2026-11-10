@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 对比工作台 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+        ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+        line: '#e6eaf2',
+        canvas: '#f5f7fb',
+        ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+      },
+      fontFamily: { sans:['-apple-system','PingFang SC','Microsoft YaHei','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  /* 基础表单样式 */
+  input[type="text"], input[type="number"], select, textarea { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 引用高亮 */
+  .cite { background: #eef3fe; color: #2f6fed; font-weight: 600; padding: 0 2px; border-radius: 2px; cursor: pointer; border-bottom: 1px dashed #2f6fed; }
+
+  /* 打字机光标动画 */
+  .cursor::after { content: '|'; animation: blink 1s step-end infinite; color: #2f6fed; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm h-screen flex flex-col overflow-hidden">
+
+<!-- 顶栏 -->
+<header class="h-14 bg-white border-b border-line flex items-center px-5 gap-4 shrink-0 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<div class="flex flex-1 overflow-hidden">
+  <!-- 侧栏 -->
+  <aside class="w-[214px] bg-white border-r border-line py-3 overflow-y-auto shrink-0 z-30">
+    <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+    <div class="h-px bg-line mx-4 my-2"></div>
+    <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+    <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+    <div class="h-px bg-line mx-4 my-2"></div>
+    <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+    <a href="训练任务.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+    <a href="任务运行监控.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+    <div class="h-px bg-line mx-4 my-2"></div>
+    <a href="客观评测任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+    <a href="主观打分任务列表.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+    <a href="RAG对比.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+    <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+    <div class="h-px bg-line mx-4 my-2"></div>
+    <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+    <div class="h-px bg-line mx-4 my-2"></div>
+    <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+  </aside>
+
+  <!-- 主区域：测试工作台 -->
+  <main class="flex-1 flex flex-col bg-canvas overflow-hidden">
+    
+    <!-- 顶部配置区 -->
+    <div class="bg-white border-b border-line p-4 shrink-0 shadow-sm z-10 relative">
+      <div class="flex items-center justify-between mb-3">
+        <h1 class="text-lg font-bold flex items-center gap-2">
+          RAG 沙盒对比 
+          <span class="text-xs font-normal text-ink-3 bg-[#fafbfd] border border-line px-2 py-0.5 rounded">实时推理 · 验证知识库召回效果</span>
+        </h1>
+        <button class="bg-ink text-white rounded-lg px-4 py-1.5 text-[13px] font-medium hover:bg-gray-800 transition">批量应用到评测集</button>
+      </div>
+      
+      <div class="flex gap-3 items-end">
+        <div class="w-[200px]">
+          <label class="form-label !text-xs">对比模型</label>
+          <select class="!py-1.5 !text-[12px]"><option>微调模型 v3 (最优)</option></select>
+        </div>
+        <div class="w-[240px]">
+          <label class="form-label !text-xs">挂载知识库</label>
+          <select class="!py-1.5 !text-[12px]"><option>工单业务知识库 v1 (已就绪)</option></select>
+        </div>
+        <div class="w-[120px]">
+          <label class="form-label !text-xs">检索模式</label>
+          <select class="!py-1.5 !text-[12px]"><option>向量检索</option><option>混合检索</option></select>
+        </div>
+        <div class="w-[100px]">
+          <label class="form-label !text-xs">Top-K</label>
+          <select class="!py-1.5 !text-[12px]"><option>5</option><option>10</option></select>
+        </div>
+        <div class="w-[120px]">
+          <label class="form-label !text-xs">相似度阈值</label>
+          <select class="!py-1.5 !text-[12px]"><option>0.7</option><option>0.8</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中间对话输入区 -->
+    <div class="p-4 bg-[#fafbfd] border-b border-line shrink-0">
+      <div class="flex gap-2 max-w-5xl mx-auto">
+        <input type="text" id="queryInput" value="客户反馈设备充电时发烫严重，是否属于正常现象？应该怎么答复？" class="!py-3 shadow-sm text-[14px]" placeholder="输入业务测试问题…" onkeydown="if(event.key==='Enter') startCompare()">
+        <button onclick="startCompare()" class="bg-primary text-white px-8 py-2 rounded-lg text-[14px] font-semibold hover:bg-primary-dark transition shrink-0 shadow-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          开始对比
+        </button>
+      </div>
+    </div>
+
+    <!-- 底部对比结果区 -->
+    <div class="flex-1 overflow-y-auto p-4 flex gap-4 max-w-[1400px] mx-auto w-full">
+      
+      <!-- 左侧：纯模型（无 RAG） -->
+      <div class="flex-1 bg-white border border-line rounded-xl shadow-sm flex flex-col overflow-hidden">
+        <div class="px-4 py-3 border-b border-line bg-[#fafbfd] flex justify-between items-center shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-ink text-[14px]">纯模型生成</span>
+            <span class="text-[11px] text-ink-3 bg-[#f2f4f7] px-2 py-0.5 rounded">无 RAG</span>
+          </div>
+          <span class="text-xs text-ink-3">耗时：1.2s</span>
+        </div>
+        <div id="resNone" class="p-5 flex-1 overflow-y-auto text-[14px] leading-relaxed text-ink-2">
+          <div class="text-ink-3 italic text-center mt-10">等待生成...</div>
+        </div>
+      </div>
+
+      <!-- 右侧：RAG 增强 -->
+      <div class="flex-1 bg-white border border-primary/30 rounded-xl shadow-sm flex flex-col overflow-hidden relative">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-[#5c9dff]"></div>
+        <div class="px-4 py-3 border-b border-line bg-[#f8fbff] flex justify-between items-center shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-primary text-[14px]">RAG 增强生成</span>
+            <span class="text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded font-medium">已挂载知识库</span>
+          </div>
+          <span class="text-xs text-ink-3">耗时：1.8s</span>
+        </div>
+        
+        <!-- RAG 结果 -->
+        <div id="resRag" class="p-5 flex-1 overflow-y-auto text-[14px] leading-relaxed text-ink-2">
+          <div class="text-ink-3 italic text-center mt-10">等待生成...</div>
+        </div>
+        
+        <!-- 召回依据 (可折叠) -->
+        <div id="ragCitations" class="border-t border-line bg-[#fafbfd] p-3 shrink-0 hidden">
+          <div class="text-xs font-semibold text-ink mb-2 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            检索到的参考依据 (Top 2)
+          </div>
+          <div class="space-y-2">
+            <div class="bg-white border border-line p-2.5 rounded text-xs text-ink-2">
+              <span class="text-primary font-bold mr-1">[1]</span> 设备充电时轻微发热属于正常现象；若出现明显发烫、外壳变形或异味，应立即停止充电并联系售后检测…… <span class="text-ink-3 ml-1">(来源：售后服务规范.pdf)</span>
+            </div>
+            <div class="bg-white border border-line p-2.5 rounded text-xs text-ink-2">
+              <span class="text-primary font-bold mr-1">[2]</span> 充电器不匹配或电池老化可能导致发烫，建议使用原装充电器。若客户反馈过热，需先排查充电环境温度…… <span class="text-ink-3 ml-1">(来源：工单处理SOP.docx)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function startCompare() {
+    const query = document.getElementById('queryInput').value;
+    if(!query) return;
+
+    const resNone = document.getElementById('resNone');
+    const resRag = document.getElementById('resRag');
+    const citations = document.getElementById('ragCitations');
+
+    // 清空并显示打字中
+    resNone.innerHTML = '<div class="cursor text-ink-2"></div>';
+    resRag.innerHTML = '<div class="cursor text-ink-2"></div>';
+    citations.classList.add('hidden');
+
+    // 定义两边的输出内容
+    const textNone = `设备在充电时出现发烫现象是比较常见的。通常是因为快充过程中电能转换产生的热量。建议您先观察一下，如果只是轻微发热，属于正常现象。如果实在烫手，建议您暂停使用，或者更换一套充电器试试。如果仍然发烫，您可以联系我们的售后客服进行咨询。`;
+    
+    const textRag = `根据售后服务规范与工单处理SOP：<br><br>1. 设备充电时<span class="cite" title="来源于召回切片 1">轻微发热属于正常现象</span>；<br>2. 但如果出现<span class="cite" title="来源于召回切片 1">明显发烫（体感超过45℃）、外壳变形或异味</span>，应立即停止充电；<br>3. 建议先排查充电器是否原装、环境温度是否过高；<br>4. 若问题依旧，需引导客户申请售后检测，非人为损坏保修期内可免费检测。<br><br><span class="text-ink-3 text-xs">（相比纯模型，回答更具专业性和操作性，且严格遵守了售后红线。）</span>`;
+
+    // 模拟打字机效果
+    typeWriter(resNone, textNone, 20, () => {
+      // 左侧打完，开始右侧 (稍微错开一点)
+      setTimeout(() => {
+        citations.classList.remove('hidden');
+        typeWriter(resRag, textRag, 30);
+      }, 400);
+    });
+  }
+
+  // 打字机函数 (支持简单的 HTML 渲染)
+  function typeWriter(element, html, speed, callback) {
+    element.innerHTML = '';
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    // 提取纯文本和节点(这里为了原型简单，直接按字符输出，但保留标签结构比较复杂，改用简化的直接逐字替换 innerHTML 的 hack 方法)
+    
+    // 简化版打字机：直接使用截取字符串，通过定时器更新。
+    // 由于包含 html 标签，直接按长度截断会破坏标签。所以这里改为“模拟思考过程”的动画，最后一次性展示文本。
+    // 我们用一个平滑的过渡代替：
+    element.innerHTML = '<span class="text-ink-3 text-xs animate-pulse">正在推理生成中...</span>';
+    
+    setTimeout(() => {
+      element.innerHTML = html;
+      // 给新增的内容加个淡入动画
+      element.classList.add('animate-[fade-in_0.3s_ease-out]');
+      if(callback) callback();
+    }, 1200); // 模拟网络延迟和推理时间
+  }
+  
+  // 添加入口动画
+  const style = document.createElement('style');
+  style.innerHTML = `@keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }`;
+  document.head.appendChild(style);
+
+  // 页面加载完自动跑一次
+  window.onload = () => {
+    setTimeout(startCompare, 500);
+  };
+</script>
+</body>
+</html>

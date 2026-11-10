@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主观打分工作台 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+        ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+        line: '#e6eaf2',
+        canvas: '#f5f7fb',
+        ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+      },
+      fontFamily: { sans:['-apple-system','PingFang SC','Microsoft YaHei','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 盲评开关 */
+  .toggle-bg { transition: background-color 0.2s; }
+  .toggle-dot { transition: transform 0.2s; }
+  .switch-on .toggle-bg { background-color: #2f6fed; }
+  .switch-on .toggle-dot { transform: translateX(20px); }
+  
+  /* 自定义打分星级按钮 */
+  .score-btn { width: 100%; height: 38px; border: 1px solid #e6eaf2; border-radius: 6px; background: #fff; color: #5b6678; font-size: 14px; font-weight: 500; transition: all 0.1s; display: flex; align-items: center; justify-content: center; }
+  .score-btn:hover { border-color: #2f6fed; color: #2f6fed; background: #fafbff; }
+  .score-btn.sel { background: #2f6fed; border-color: #2f6fed; color: #fff; transform: scale(1.05); box-shadow: 0 2px 8px rgba(47, 111, 237, 0.3); }
+
+  /* 偏好投注按钮 */
+  .pref-btn { flex: 1; border: 1px solid #e6eaf2; background: #fff; color: #5b6678; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+  .pref-btn:hover { border-color: #2f6fed; color: #2f6fed; }
+  .pref-btn.sel { background: #e7f8f0; border-color: #12b76a; color: #12b76a; box-shadow: inset 0 0 0 1px #12b76a; }
+
+  /* 标注高亮 */
+  .hl-selected { background: #e7f8f0; border-left: 3px solid #12b76a; }
+  .hl-bad { background: #feeceb; border-left: 3px solid #f04438; }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm h-screen overflow-hidden flex flex-col">
+
+<!-- 顶栏 -->
+<header class="h-14 bg-white border-b border-line flex items-center px-5 gap-4 shrink-0 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  
+  <!-- 任务信息 -->
+  <div class="flex items-center gap-3 ml-6 pl-6 border-l border-line">
+    <span class="text-[13px] font-medium text-ink bg-[#eef3fe] px-2 py-1 rounded">主观打分任务</span>
+    <span class="text-[13px] text-ink-2">工单问答业务基线测试（双模型对比）</span>
+  </div>
+  
+  <div class="flex-1"></div>
+  
+  <!-- 进度与退出 -->
+  <div class="flex items-center gap-4">
+    <div class="text-[13px]">
+      <span class="text-ink-3">进度：</span>
+      <span class="font-bold text-primary">42</span>
+      <span class="text-ink-3"> / 160</span>
+    </div>
+    <button onclick="window.location.href='客观评测.html'" class="border border-line bg-white text-ink-2 rounded-lg px-3 py-1.5 text-[13px] font-medium hover:border-primary hover:text-primary transition">退出打分</button>
+  </div>
+</header>
+
+<!-- 主体工作区 (全屏适配) -->
+<main class="flex-1 flex overflow-hidden">
+  
+  <!-- 左侧：题目与上下文 -->
+  <div class="w-[40%] min-w-[400px] border-r border-line bg-white flex flex-col h-full">
+    <div class="p-6 flex-1 overflow-y-auto">
+      <div class="text-xs text-ink-3 mb-2 flex items-center gap-2">
+        <span class="bg-[#f2f4f7] px-2 py-0.5 rounded">Q-042</span>
+        <span>业务知识问答</span>
+      </div>
+      
+      <!-- 用户提问 -->
+      <div class="text-[16px] font-semibold leading-relaxed mb-6">
+        客户反馈："设备充电时发烫严重，是否属于正常现象？"请给出符合业务口径的答复。
+      </div>
+      
+      <!-- 业务参考规范 (可选) -->
+      <div class="bg-[#fafbfd] border border-line rounded-lg p-4 mb-6">
+        <h4 class="text-[13px] font-semibold text-ink mb-2 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          业务判定标准（供打分参考）
+        </h4>
+        <p class="text-[13px] text-ink-2 leading-relaxed">
+          1. 明确区分"轻微发热"与"发烫异常"。<br>
+          2. 发烫需指导用户检查：充电器是否原装、是否有外壳包裹影响散热。<br>
+          3. 若伴随异味、变形，必须立即引导停用并申请售后。<br>
+          <span class="text-danger font-medium mt-1 block">注意：严禁直接承诺"免费换新"，必须以检测结果为准。</span>
+        </p>
+      </div>
+
+      <div class="mt-8 border-t border-line pt-4">
+        <h4 class="text-xs text-ink-3 mb-2">打分维度提示</h4>
+        <ul class="text-xs text-ink-2 space-y-1 list-disc pl-4">
+          <li><b>准确性：</b>是否违反业务红线、是否混淆故障原因。</li>
+          <li><b>专业性：</b>语气是否符合专业客服标准。</li>
+          <li><b>完整性：</b>是否包含"排查原因"和"售后建议"。</li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- 翻页控制 -->
+    <div class="p-4 border-t border-line bg-[#fafbfd] flex justify-between items-center">
+      <button class="flex items-center gap-1 px-3 py-1.5 border border-line bg-white rounded-lg text-[13px] text-ink-2 hover:border-primary transition">
+        ← 上一题
+      </button>
+      <button class="flex items-center gap-1 px-3 py-1.5 border border-line bg-white rounded-lg text-[13px] text-ink-2 hover:border-primary transition">
+        跳过本题
+      </button>
+    </div>
+  </div>
+
+  <!-- 右侧：双盲评测与打分 -->
+  <div class="flex-1 flex flex-col bg-canvas h-full overflow-y-auto">
+    
+    <!-- 盲评控制台 -->
+    <div class="bg-white border-b border-line px-6 py-3 flex justify-between items-center shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="text-[13px] font-medium text-ink">评测模式</span>
+        <div id="blindSwitch" class="switch-on flex items-center gap-2 cursor-pointer" onclick="toggleBlind()">
+          <div class="toggle-bg w-10 h-5 bg-[#2f6fed] rounded-full px-0.5 flex items-center">
+            <div class="toggle-dot w-4 h-4 bg-white rounded-full shadow"></div>
+          </div>
+          <span id="blindText" class="text-[13px] text-ink-2 select-none">盲评开启 (隐藏模型身份)</span>
+        </div>
+      </div>
+      <div class="text-[12px] text-ink-3">
+        <span class="text-warn font-medium mr-1">提示：</span>打分后请务必投注哪一个更好，用于生成偏好数据。
+      </div>
+    </div>
+
+    <!-- 对比打分区 -->
+    <div class="p-6 flex-1 flex flex-col">
+      
+      <div class="flex gap-6 flex-1 min-h-[400px]">
+        <!-- 回答 A -->
+        <div class="flex-1 flex flex-col bg-white border border-line rounded-xl shadow-sm overflow-hidden relative">
+          <div class="px-4 py-3 border-b border-line bg-[#fafbfd] flex justify-between items-center">
+            <span class="font-bold text-ink">回答 A</span>
+            <span id="labelA" class="text-xs text-ink-3 bg-[#e6eaf2] px-2 py-0.5 rounded">模型已隐藏</span>
+          </div>
+          <div class="p-5 flex-1 text-[14px] leading-relaxed text-ink-2 overflow-y-auto">
+            设备在充电时轻微发热属于正常能量转换现象，您可以放心。<br><br>
+            但如果出现明显发烫、外壳变形或异味，建议立即停止充电，并更换原装充电器尝试。如果问题依旧，您可以通过客服申请售后检测，保修期内非人为损坏可以免费检测维修。
+          </div>
+          <!-- 打分区 -->
+          <div class="border-t border-line p-4 bg-white">
+            <div class="text-xs text-ink-3 mb-2 flex justify-between">
+              <span>准确性打分 (1-10分)</span>
+              <span class="font-bold text-primary" id="valA">未打分</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1" data-panel="A">
+              <button class="score-btn" onclick="setScore(this,'A',1)">1</button>
+              <button class="score-btn" onclick="setScore(this,'A',2)">2</button>
+              <button class="score-btn" onclick="setScore(this,'A',3)">3</button>
+              <button class="score-btn" onclick="setScore(this,'A',4)">4</button>
+              <button class="score-btn" onclick="setScore(this,'A',5)">5</button>
+              <button class="score-btn" onclick="setScore(this,'A',6)">6</button>
+              <button class="score-btn" onclick="setScore(this,'A',7)">7</button>
+              <button class="score-btn" onclick="setScore(this,'A',8)">8</button>
+              <button class="score-btn" onclick="setScore(this,'A',9)">9</button>
+              <button class="score-btn" onclick="setScore(this,'A',10)">10</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 回答 B -->
+        <div class="flex-1 flex flex-col bg-white border border-line rounded-xl shadow-sm overflow-hidden relative">
+          <div class="px-4 py-3 border-b border-line bg-[#fafbfd] flex justify-between items-center">
+            <span class="font-bold text-ink">回答 B</span>
+            <span id="labelB" class="text-xs text-ink-3 bg-[#e6eaf2] px-2 py-0.5 rounded">模型已隐藏</span>
+          </div>
+          <div class="p-5 flex-1 text-[14px] leading-relaxed text-ink-2 overflow-y-auto">
+            电池老化或充电器不匹配会导致发热严重。建议您更换充电器。<br><br>
+            如果还是很烫，可以直接返厂维修，我们这边保修期内的设备是可以为您免费换新的。
+          </div>
+          <!-- 打分区 -->
+          <div class="border-t border-line p-4 bg-white">
+            <div class="text-xs text-ink-3 mb-2 flex justify-between">
+              <span>准确性打分 (1-10分)</span>
+              <span class="font-bold text-primary" id="valB">未打分</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1" data-panel="B">
+              <button class="score-btn" onclick="setScore(this,'B',1)">1</button>
+              <button class="score-btn" onclick="setScore(this,'B',2)">2</button>
+              <button class="score-btn" onclick="setScore(this,'B',3)">3</button>
+              <button class="score-btn" onclick="setScore(this,'B',4)">4</button>
+              <button class="score-btn" onclick="setScore(this,'B',5)">5</button>
+              <button class="score-btn" onclick="setScore(this,'B',6)">6</button>
+              <button class="score-btn" onclick="setScore(this,'B',7)">7</button>
+              <button class="score-btn" onclick="setScore(this,'B',8)">8</button>
+              <button class="score-btn" onclick="setScore(this,'B',9)">9</button>
+              <button class="score-btn" onclick="setScore(this,'B',10)">10</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 偏好投注区 (底部固定) -->
+      <div class="mt-6 bg-white border border-line rounded-xl shadow-sm p-5 shrink-0">
+        <div class="flex items-center gap-4 mb-3">
+          <h3 class="text-[14px] font-semibold">对比结论</h3>
+          <span class="text-xs text-ink-3">请根据准确性选出更优的回答，这将直接转化为 DPO 训练数据</span>
+        </div>
+        
+        <div class="flex gap-4">
+          <button class="pref-btn" onclick="pickPref(this,'A')">A 更好 (Chosen)</button>
+          <button class="pref-btn" onclick="pickPref(this,'same')">平局 (Same)</button>
+          <button class="pref-btn" onclick="pickPref(this,'B')">B 更好 (Chosen)</button>
+          <button class="pref-btn hover:!border-danger hover:!text-danger" onclick="pickPref(this,'bad')">都不合格 (Rejected)</button>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+          <button id="btnSubmit" class="bg-primary text-white rounded-lg px-8 py-2.5 text-[14px] font-semibold hover:bg-primary-dark transition flex items-center gap-2 shadow-sm opacity-50 cursor-not-allowed" disabled>
+            提交并进入下一题 (Enter)
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // 状态变量
+  let scores = { A: null, B: null };
+  let preference = null;
+  let isBlind = true;
+
+  // 盲评开关
+  function toggleBlind() {
+    isBlind = !isBlind;
+    const sw = document.getElementById('blindSwitch');
+    const txt = document.getElementById('blindText');
+    const lbA = document.getElementById('labelA');
+    const lbB = document.getElementById('labelB');
+
+    if (isBlind) {
+      sw.classList.add('switch-on');
+      txt.innerText = '盲评开启 (隐藏模型身份)';
+      lbA.innerText = '模型已隐藏';
+      lbB.innerText = '模型已隐藏';
+    } else {
+      sw.classList.remove('switch-on');
+      txt.innerText = '盲评关闭 (显示真实名称)';
+      lbA.innerText = '微调模型 v3';
+      lbB.innerText = '基座 Qwen2.5-7B';
+    }
+  }
+
+  // 打分
+  function setScore(btn, panel, num) {
+    const parent = btn.parentElement;
+    parent.querySelectorAll('.score-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    
+    scores[panel] = num;
+    document.getElementById('val' + panel).innerText = num + ' 分';
+    document.getElementById('val' + panel).className = 'font-bold text-ok'; // 打完分变绿
+    
+    checkSubmitState();
+  }
+
+  // 偏好投注
+  function pickPref(btn, val) {
+    const parent = btn.parentElement;
+    parent.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    preference = val;
+    
+    checkSubmitState();
+  }
+
+  // 校验是否可提交
+  function checkSubmitState() {
+    const btn = document.getElementById('btnSubmit');
+    // 只要随便打了个分，或者选了偏好，就算有效打分（宽松判定）
+    if ((scores.A !== null && scores.B !== null) || preference !== null) {
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      btn.removeAttribute('disabled');
+    } else {
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+      btn.setAttribute('disabled', 'true');
+    }
+  }
+
+  // 快捷键支持
+  document.addEventListener('keydown', (e) => {
+    // 数字键 1-9 给 A 打分，Shift + 1-9 给 B 打分
+    if (e.key >= '1' && e.key <= '9') {
+      const num = parseInt(e.key);
+      if (e.shiftKey) {
+        const bBtns = document.querySelectorAll('[data-panel="B"] .score-btn');
+        if(bBtns[num-1]) setScore(bBtns[num-1], 'B', num);
+      } else {
+        const aBtns = document.querySelectorAll('[data-panel="A"] .score-btn');
+        if(aBtns[num-1]) setScore(aBtns[num-1], 'A', num);
+      }
+    }
+    // 回车提交
+    if (e.key === 'Enter' && !document.getElementById('btnSubmit').disabled) {
+      submitAndNext();
+    }
+  });
+
+  // 提交动作
+  document.getElementById('btnSubmit').addEventListener('click', submitAndNext);
+
+  function submitAndNext() {
+    const btn = document.getElementById('btnSubmit');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '保存中...';
+    btn.disabled = true;
+
+    // 模拟网络请求
+    setTimeout(() => {
+      // 重置界面
+      document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('sel'));
+      document.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('sel'));
+      document.getElementById('valA').innerText = '未打分';
+      document.getElementById('valA').className = 'font-bold text-primary';
+      document.getElementById('valB').innerText = '未打分';
+      document.getElementById('valB').className = 'font-bold text-primary';
+      scores = { A: null, B: null };
+      preference = null;
+      
+      btn.innerHTML = originalText;
+      checkSubmitState();
+      
+      // 模拟进度+1 (纯前端展示)
+      const prog = document.querySelector('header .text-primary.font-bold');
+      if(prog) prog.innerText = parseInt(prog.innerText) + 1;
+      
+    }, 600);
+  }
+</script>
+</body>
+</html>

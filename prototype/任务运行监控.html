@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- 🚨 全站导航统一自动注入脚本（复制这段代码到所有 html 的 <head> 里） -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+
+    // 获取当前页面的文件名
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1);
+
+    // 统一的最新导航菜单数据（包含平台治理二级菜单）
+    const menuData = [
+        { text: '项目概览', icon: '▦', url: '项目概览.html' },
+        { type: 'divider' },
+        { text: '数据资产', icon: '▤', url: '数据资产.html' },
+        { text: '评测基准', icon: '☰', url: '评测基准.html' },
+        { type: 'divider' },
+        { text: '模型资产', icon: '◈', url: '模型资产.html' },
+        { text: '训练任务', icon: '⚙', url: '训练任务.html' },
+        { text: '任务运行监控', icon: '📈', url: '任务运行监控.html' },
+        { type: 'divider' },
+        { text: '模型评测', icon: '✓', url: '客观评测任务列表.html' },
+        { text: '主观打分', icon: '✎', url: '主观打分任务列表.html' },
+        { text: 'RAG 对比', icon: '⇄', url: 'RAG对比.html' },
+        { text: '评测报告', icon: '▤', url: '评测报告.html' },
+        { type: 'divider' },
+        { text: '知识增强', icon: '▥', url: '知识增强.html' },
+        { type: 'divider' },
+        { type: 'label', text: '平台治理' },
+        { text: '租户与项目', icon: '⚒', url: '平台治理-租户管理.html' },
+        { text: '成员与权限', icon: '⚒', url: '平台治理-成员角色.html' },
+        { text: '算力资源池', icon: '⚒', url: '平台治理-算力资源.html' },
+        { text: '审计日志', icon: '⚒', url: '平台治理-审计日志.html' }
+    ];
+
+    // 生成 HTML 字符串
+    let html = '';
+    menuData.forEach(item => {
+        if (item.type === 'divider') {
+            html += `<div class="h-px bg-line mx-4 my-2"></div>`;
+        } else if (item.type === 'label') {
+            html += `<div class="px-5 py-1 text-xs text-ink-3 font-medium mt-1">${item.text}</div>`;
+        } else {
+            // 判断当前项是否激活（容错处理：如果是首页，也激活）
+            let isActive = (currentPage === item.url) || (item.text === '模型评测' && currentPage === '评测结果明细.html') || (item.text === '训练任务' && currentPage === '新建训练任务.html') || (item.text === '模型资产' && currentPage.includes('量化')) || (item.text === '模型资产' && currentPage.includes('模型详情'));
+            
+            const activeClass = isActive ? 'active' : '';
+            // 使用纯 Tailwind 类名，保证样式绝对不会丢
+            html += `
+            <a href="${item.url}" class="nav-item ${activeClass} flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink transition-colors">
+                <span class="w-[18px] text-center">${item.icon}</span> ${item.text}
+            </a>`;
+        }
+    });
+
+    // 将生成的导航替换掉旧的导航内容
+    sidebar.innerHTML = html;
+});
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>任务运行监控 · ModelForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { DEFAULT:'#2f6fed', dark:'#1f56c9', light:'#eef3fe' },
+        ink: { DEFAULT:'#1f2733', 2:'#5b6678', 3:'#98a2b3' },
+        line: '#e6eaf2',
+        canvas: '#f5f7fb',
+        ok: '#12b76a', warn:'#f79009', danger:'#f04438', violet:'#7a5af8'
+      },
+      fontFamily: { sans:['-apple-system','PingFang SC','Microsoft YaHei','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  /* 原生基础样式重置 */
+  input[type="text"], input[type="number"], select, textarea { width: 100%; border: 1px solid #e6eaf2; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #1f2733; outline: none; background-color: #fff; transition: all 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: #2f6fed; box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.2); }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #1f2733; }
+  
+  /* 侧边栏 */
+  .nav-item.active { background:#eef3fe; color:#2f6fed; border-left-color:#2f6fed; font-weight:600 }
+  .nav-item { border-left:3px solid transparent }
+  
+  /* 滚动条美化 */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6dbe6;border-radius:8px}
+
+  /* 终端日志样式 */
+  .terminal { background-color: #0f172a; color: #cbd5e1; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; border-radius: 8px; padding: 14px; height: 250px; overflow-y: auto; line-height: 1.8; }
+  .terminal .info { color: #60a5fa; }
+  .terminal .ok { color: #4ade80; }
+  .terminal .warn { color: #fbbf24; }
+  .terminal .err { color: #f87171; }
+  .terminal .time { color: #64748b; margin-right: 8px; }
+  
+  /* 进度条动画 */
+  .progress-striped {
+    background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-size: 1rem 1rem;
+    animation: progress-bar-stripes 1s linear infinite;
+  }
+  @keyframes progress-bar-stripes {
+    0% { background-position: 1rem 0; }
+    100% { background-position: 0 0; }
+  }
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans text-sm">
+
+<!-- 顶栏 -->
+<header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-line flex items-center px-5 gap-4 z-40">
+  <div class="font-bold text-base text-primary whitespace-nowrap tracking-wide">
+    行业大模型训练验证平台 <span class="text-ink-3 font-medium text-xs ml-1">ModelForge</span>
+  </div>
+  <div class="flex items-center gap-1.5 bg-canvas border border-line rounded-lg px-3 py-1.5 text-[13px]">
+    <span class="w-2 h-2 rounded-full bg-ok"></span>
+    <span>租户：某行业客户A · 项目：智能问答模型</span>
+  </div>
+  <div class="flex-1"></div>
+  <div class="bg-canvas border border-line rounded-lg px-3 py-1.5 w-56 text-ink-3 text-[13px] cursor-text">🔍 搜索数据集 / 模型 / 训练任务…</div>
+  <button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[13px] font-semibold hover:bg-primary-dark">管</button>
+</header>
+
+<!-- 侧栏 -->
+<aside class="fixed top-14 bottom-0 left-0 w-[214px] bg-white border-r border-line py-3 overflow-y-auto z-30">
+  <a href="项目概览.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▦</span> 项目概览</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="数据资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 数据资产</a>
+  <a href="评测基准.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">☰</span> 评测基准</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="模型资产.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">◈</span> 模型资产</a>
+  <a href="训练任务.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚙</span> 训练任务</a>
+  <a href="任务运行监控.html" class="nav-item active flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink" style="background:#f5f7fb; color:#2f6fed;"><span class="w-[18px] text-center">📈</span> 任务运行监控</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="客观评测.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✓</span> 模型评测</a>
+  <a href="主观打分.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">✎</span> 主观打分</a>
+  <a href="RAG对比.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⇄</span> RAG 对比</a>
+  <a href="评测报告.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▤</span> 评测报告</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="知识增强.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">▥</span> 知识增强</a>
+  <div class="h-px bg-line mx-4 my-2"></div>
+  <a href="平台治理.html" class="nav-item flex items-center gap-2.5 px-5 py-2.5 text-ink-2 text-sm hover:bg-canvas hover:text-ink"><span class="w-[18px] text-center">⚒</span> 平台治理</a>
+</aside>
+
+<!-- 主区域 -->
+<main class="ml-[214px] mt-14 p-6 min-h-[calc(100vh-56px)]">
+
+  <!-- 面包屑与页头 -->
+  <div class="text-[13px] text-ink-3 mb-2">
+    <a href="训练任务.html" class="text-primary hover:underline mr-1">训练任务</a> / <span class="text-ink font-semibold">任务运行监控</span>
+  </div>
+  <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center gap-3">
+      <h1 class="text-xl font-bold">偏好对齐-Qwen2.5-7B-v3</h1>
+      <span id="pageStatusTag" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#fef4e6] text-warn flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-warn animate-pulse"></span> 运行中
+      </span>
+    </div>
+    <div class="flex gap-2.5">
+      <button id="btnAbort" onclick="abortTask()" class="border border-danger text-danger bg-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-[#feeceb] transition">中止任务</button>
+      <button class="bg-primary text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-dark transition">查看完整日志</button>
+    </div>
+  </div>
+
+  <!-- 顶部指标卡 -->
+  <div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">训练进度</div>
+      <div class="flex items-end gap-2 mt-1">
+        <div id="progressText" class="text-[26px] font-bold leading-none">62%</div>
+        <div class="text-xs text-ink-3 mb-0.5">Epoch 1.86 / 3</div>
+      </div>
+      <div class="w-full h-2 bg-[#eef1f6] rounded-full overflow-hidden mt-3">
+        <div id="progressBar" class="h-full bg-primary rounded-full progress-striped transition-all duration-300" style="width:62%"></div>
+      </div>
+      <div class="text-ink-3 text-xs mt-2">预计剩余时间：1h 20m</div>
+    </div>
+    
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">当前 Loss</div>
+      <div id="lossVal" class="text-[26px] font-bold text-ok mt-1 transition-colors duration-300">0.842</div>
+      <div class="text-xs text-ok mt-1 flex items-center gap-1">↓ 较上一轮 -0.113</div>
+    </div>
+
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="text-ink-3 text-[13px]">GPU 占用</div>
+      <div class="text-[26px] font-bold mt-1">2/8</div>
+      <div class="text-xs text-ink-3 mt-1 flex gap-3">
+        <span>显存：<span id="gpuMem" class="text-ink font-medium">72%</span></span>
+        <span>利用率：<span class="text-ink font-medium">91%</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表与日志双栏 -->
+  <div class="grid grid-cols-2 gap-4 mb-4">
+    <!-- Loss 曲线 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[15px] font-semibold">Loss 曲线</h3>
+        <div class="flex gap-3 text-xs">
+          <span class="flex items-center gap-1 text-primary"><span class="w-2 h-0.5 bg-primary"></span>训练集</span>
+          <span class="flex items-center gap-1 text-warn"><span class="w-2 h-0.5 bg-warn border-dashed border-t"></span>验证集</span>
+        </div>
+      </div>
+      <div class="bg-[#fafbfd] border border-line rounded-lg p-2 h-[250px] relative">
+        <svg viewBox="0 0 500 220" class="w-full h-full" preserveAspectRatio="none">
+          <!-- 网格线 -->
+          <line x1="40" y1="180" x2="480" y2="180" stroke="#e6eaf2" stroke-width="1"/>
+          <line x1="40" y1="120" x2="480" y2="120" stroke="#e6eaf2" stroke-width="1" stroke-dasharray="4 4"/>
+          <line x1="40" y1="60" x2="480" y2="60" stroke="#e6eaf2" stroke-width="1" stroke-dasharray="4 4"/>
+          <line x1="40" y1="20" x2="40" y2="180" stroke="#e6eaf2" stroke-width="1"/>
+          
+          <!-- Y轴标签 -->
+          <text x="5" y="25" fill="#98a2b3" font-size="10">1.0</text>
+          <text x="5" y="65" fill="#98a2b3" font-size="10">0.8</text>
+          <text x="5" y="125" fill="#98a2b3" font-size="10">0.6</text>
+          <text x="5" y="185" fill="#98a2b3" font-size="10">0.4</text>
+          
+          <!-- 训练 Loss 线 -->
+          <polyline points="40,30 100,50 160,70 220,90 280,110 340,130 400,145" fill="none" stroke="#2f6fed" stroke-width="2.5" stroke-linejoin="round"/>
+          <!-- 训练 Loss 数据点 -->
+          <circle cx="400" cy="145" r="4" fill="#2f6fed" class="animate-ping" style="animation-duration: 3s" />
+          <circle cx="400" cy="145" r="4" fill="#2f6fed" />
+
+          <!-- 验证 Loss 线 -->
+          <polyline points="40,40 100,60 160,85 220,105 280,125 340,140 400,155" fill="none" stroke="#f79009" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>
+          <!-- 验证 Loss 数据点 -->
+          <circle cx="400" cy="155" r="3" fill="#f79009" />
+        </svg>
+        <div class="absolute bottom-1 right-2 text-xs text-ink-3">step 1240</div>
+      </div>
+    </div>
+
+    <!-- 终端日志 -->
+    <div class="bg-white border border-line rounded-[10px] shadow-sm p-4 flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[15px] font-semibold">运行日志</h3>
+        <span class="text-xs text-ok flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-ok animate-pulse"></span> 实时输出</span>
+      </div>
+      <div id="terminalLog" class="terminal flex-1 overflow-y-auto" id="logBox">
+        <div><span class="time">[10:42:01]</span><span class="info">[INFO]</span> step 1240/2000 | loss: 0.842 | lr: 1.8e-5</div>
+        <div><span class="time">[10:42:03]</span><span class="info">[INFO]</span> eval loss: 0.901 | ppl: 2.46</div>
+        <div><span class="time">[10:42:05]</span><span class="ok">[SAVE]</span> Checkpoint saved to ./ckpt-1240</div>
+        <div><span class="time">[10:42:08]</span><span class="info">[INFO]</span> step 1250/2000 | loss: 0.838 | lr: 1.8e-5</div>
+        <div><span class="time">[10:42:10]</span><span class="warn">[WARN]</span> GPU1 memory usage is 74%, nearing threshold.</div>
+        <div><span class="time">[10:42:12]</span><span class="info">[INFO]</span> step 1260/2000 | loss: 0.835 | lr: 1.8e-5</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 产物列表 -->
+  <div class="bg-white border border-line rounded-[10px] shadow-sm p-4">
+    <h3 class="text-[15px] font-semibold mb-3">训练产物</h3>
+    <table class="w-full text-left text-[13px]">
+      <thead class="bg-[#fafbfd] text-ink-3 border-b border-line">
+        <tr>
+          <th class="font-medium px-4 py-2.5">产出名称</th>
+          <th class="font-medium px-4 py-2.5">状态</th>
+          <th class="font-medium px-4 py-2.5">说明</th>
+          <th class="font-medium px-4 py-2.5 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="text-ink-2 divide-y divide-line">
+        <tr>
+          <td class="px-4 py-3 font-medium text-ink">微调模型 v3（LoRA 合并）</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[#fef4e6] text-warn">训练中</span></td>
+          <td class="px-4 py-3">完成后自动入库，可参与评测</td>
+          <td class="px-4 py-3 text-right space-x-2"><a href="#" class="text-primary hover:underline">查看</a></td>
+        </tr>
+        <tr>
+          <td class="px-4 py-3 font-medium text-ink">checkpoint ckpt-1240</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[#e7f8f0] text-ok">已保存</span></td>
+          <td class="px-4 py-3">可用于中断恢复</td>
+          <td class="px-4 py-3 text-right space-x-2"><a href="#" class="text-primary hover:underline">回滚到此</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+  // 模拟终端日志滚动输出
+  const terminal = document.getElementById('terminalLog');
+  const lossEl = document.getElementById('lossVal');
+  const memEl = document.getElementById('gpuMem');
+  
+  let step = 1260;
+  let baseLoss = 0.835;
+  let isRunning = true;
+
+  function getTimeStr() {
+    const d = new Date();
+    return `[${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}]`;
+  }
+
+  setInterval(() => {
+    if (!isRunning) return;
+    
+    step += 10;
+    baseLoss = Math.max(0.4, baseLoss - (Math.random() * 0.005));
+    const currentLoss = baseLoss.toFixed(3);
+    
+    // 更新 Loss 数值
+    lossEl.innerText = currentLoss;
+    
+    // 随机改变 GPU 显存
+    if (Math.random() > 0.7) {
+      memEl.innerText = Math.floor(70 + Math.random() * 5) + '%';
+    }
+    
+    // 写日志
+    const isWarn = Math.random() > 0.85;
+    const logPrefix = isWarn ? '<span class="warn">[WARN]</span> GPU0 温度偏高 (78°C)' : `<span class="info">[INFO]</span> step ${step}/2000 | loss: ${currentLoss} | lr: 1.8e-5`;
+    
+    const div = document.createElement('div');
+    div.innerHTML = `<span class="time">${getTimeStr()}</span>${logPrefix}`;
+    terminal.appendChild(div);
+    
+    // 自动滚动到底部
+    terminal.scrollTop = terminal.scrollHeight;
+    
+    // 保持日志数量不超过 50 条
+    if (terminal.children.length > 50) {
+      terminal.removeChild(terminal.firstChild);
+    }
+  }, 2000);
+
+  // 中止任务交互
+  function abortTask() {
+    if(confirm('确定要强行中止当前训练任务吗？未保存的进度将会丢失。')) {
+      isRunning = false;
+      
+      // 1. 更改状态标签
+      const tag = document.getElementById('pageStatusTag');
+      tag.className = 'px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#feeceb] text-danger flex items-center gap-1';
+      tag.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-danger"></span> 已中止';
+      
+      // 2. 隐藏中止按钮
+      document.getElementById('btnAbort').style.display = 'none';
+      
+      // 3. 进度条变灰，去掉动画
+      const pb = document.getElementById('progressBar');
+      pb.className = 'h-full bg-ink-3 rounded-full transition-all duration-300';
+      
+      // 4. 打印中止日志
+      const div = document.createElement('div');
+      div.innerHTML = `<span class="time">${getTimeStr()}</span><span class="err">[ERROR]</span> Task aborted by user. Cleaning up resources...`;
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+      
+      // 5. Loss变灰
+      lossEl.className = 'text-[26px] font-bold text-ink-3 mt-1 line-through';
+    }
+  }
+</script>
+</body>
+</html>
